@@ -96,3 +96,8 @@ func containsValue(values []byte, value byte) bool {
 	}
 	return false
 }
+
+func removeValue(values []byte, valueIndex int) []byte {
+	//fmt.Println(values, valueIndex)
+	return append(values[:valueIndex], values[valueIndex+1:]...)
+}

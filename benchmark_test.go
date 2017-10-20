@@ -11,7 +11,8 @@ const SampleSize int = 100
 
 func findPossibleKeyLengthsWorker(valuesByPosition [][]byte, jobs <-chan mapData, results chan<- []int) {
 	for j := range jobs {
-		result := findPossibleKeyLengths(j, valuesByPosition)
+		mapData := decodeBase16(j.data)
+		result := findPossibleKeyLengths(mapData, valuesByPosition)
 		results <- result
 	}
 }
@@ -23,7 +24,8 @@ type FindPossibleDecryptedDataResult struct {
 
 func findPossibleDecryptedDataWorker(mapsData []mapData, jobs <-chan mapData, results chan<- FindPossibleDecryptedDataResult) {
 	for j := range jobs {
-		decryptedData, keyLength := findPossibleDecryptedDataAndKeyLength(j, mapsData)
+		mapData := decodeBase16(j.data)
+		decryptedData, keyLength := findPossibleDecryptedDataAndKeyLength(mapData, mapsData)
 		results <- FindPossibleDecryptedDataResult{decryptedData, keyLength}
 	}
 }

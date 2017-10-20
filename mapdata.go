@@ -7,6 +7,8 @@ import "fmt"
 const CellSize int = 10
 const KeySizeMin int = 256 / 2
 const KeySizeMax int = 554 / 2
+const KeyValueMin byte = 32
+const KeyValueMax byte = 127
 
 type mapData struct {
 	id            int

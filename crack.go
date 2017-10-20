@@ -1,40 +1,41 @@
 package main
 
+import "fmt"
+
 func main() {
 	db := connect()
 	mapsData := getKnownMapsData(db)
-	for i := 0; i < 100; i++ {
-		findPossibleDecryptedDataAndKeyLength(mapsData[i], mapsData)
-	}
+	mapData := decodeBase16(mapsData[1].data)
+	decryptedData, keyLength := findPossibleDecryptedDataAndKeyLength(mapData, mapsData)
+	fmt.Println(decryptedDataToKey(mapData, keyLength, decryptedData))
 }
 
-func findPossibleKeyLengths(targetMap mapData, valuesByPosition [][]byte) []int {
+func findPossibleKeyLengths(mapData []byte, valuesByPosition [][]byte) []int {
 	possibleKeyLengths := []int{}
 	for i := KeySizeMin; i < KeySizeMax; i++ {
-		if keyLengthIsPossible(i, targetMap, valuesByPosition) {
+		if keyLengthIsPossible(i, mapData, valuesByPosition) {
 			possibleKeyLengths = append(possibleKeyLengths, i)
 		}
 	}
 	return possibleKeyLengths
 }
 
-func findFirstPossibleKeyLength(targetMap mapData, valuesByPosition [][]byte) int {
+func findFirstPossibleKeyLength(mapData []byte, valuesByPosition [][]byte) int {
 	for i := KeySizeMin; i < KeySizeMax; i++ {
-		if keyLengthIsPossible(i, targetMap, valuesByPosition) {
+		if keyLengthIsPossible(i, mapData, valuesByPosition) {
 			return i
 		}
 	}
 	return 0
 }
 
-func keyLengthIsPossible(keyLength int, targetMap mapData, valuesByPosition [][]byte) bool {
-	data := decodeBase16(targetMap.data)
+func keyLengthIsPossible(keyLength int, mapData []byte, valuesByPosition [][]byte) bool {
 	for i := 0; i < keyLength; i++ {
-		for j := i; j+keyLength < len(data); j += keyLength {
+		for j := i; j+keyLength < len(mapData); j += keyLength {
 			position1 := j % CellSize
 			position2 := (j + keyLength) % CellSize
 			valuesForXoredPositions := getXoredValuesForPositions(position1, position2, valuesByPosition)
-			xoredValue := data[j] ^ data[j+keyLength]
+			xoredValue := mapData[j] ^ mapData[j+keyLength]
 			if !containsValue(valuesForXoredPositions, xoredValue) {
 				return false
 			}
@@ -43,15 +44,15 @@ func keyLengthIsPossible(keyLength int, targetMap mapData, valuesByPosition [][]
 	return true
 }
 
-func findPossibleDecryptedDataAndKeyLength(targetMap mapData, mapsData []mapData) ([][]byte, int) {
+func findPossibleDecryptedDataAndKeyLength(mapData []byte, mapsData []mapData) ([][]byte, int) {
 	valuesByPosition := getValuesByPosition(mapsData)
 
-	keyLength := findFirstPossibleKeyLength(targetMap, valuesByPosition)
+	keyLength := findFirstPossibleKeyLength(mapData, valuesByPosition)
 
-	data := decodeBase16(targetMap.data)
-	decryptedData := initializeDecryptedData(len(data), valuesByPosition)
+	decryptedData := initializeDecryptedData(len(mapData), valuesByPosition)
 
-	decryptedData = eliminateImpossibleValuesForDecryptedData(data, keyLength, decryptedData, valuesByPosition)
+	decryptedData = eliminateImpossibleValuesInDecryptedData(mapData, keyLength, decryptedData, valuesByPosition)
+	decryptedData = eliminateValuesWithInvalidKeyInDecryptedData(mapData, decryptedData)
 	return decryptedData, keyLength
 }
 
@@ -64,7 +65,7 @@ func initializeDecryptedData(dataLength int, valuesByPosition [][]byte) [][]byte
 	return decryptedData
 }
 
-func eliminateImpossibleValuesForDecryptedData(mapData []byte, keyLength int, decryptedData [][]byte, valuesByPosition [][]byte) [][]byte {
+func eliminateImpossibleValuesInDecryptedData(mapData []byte, keyLength int, decryptedData [][]byte, valuesByPosition [][]byte) [][]byte {
 	dataLength := len(mapData)
 	for i := 0; i < dataLength; i++ {
 		keyOffset := i % keyLength
@@ -78,6 +79,30 @@ func eliminateImpossibleValuesForDecryptedData(mapData []byte, keyLength int, de
 		}
 	}
 	return decryptedData
+}
+
+func eliminateValuesWithInvalidKeyInDecryptedData(mapData []byte, decryptedData [][]byte) [][]byte {
+	for i := 0; i < len(mapData); i++ {
+		newValues := decryptedData[i][:0]
+		for _, v := range decryptedData[i] {
+			keyValue := mapData[i] ^ v
+			if keyValue >= KeyValueMin && keyValue <= KeyValueMax {
+				newValues = append(newValues, v)
+			}
+		}
+		decryptedData[i] = newValues
+	}
+	return decryptedData
+}
+
+func decryptedDataToKey(mapData []byte, keyLength int, decryptedData [][]byte) []byte {
+	key := make([]byte, keyLength)
+	for i := 0; i < len(mapData); i++ {
+		if len(decryptedData[i]) == 1 {
+			key[i%keyLength] = decryptedData[i][0] ^ mapData[i]
+		}
+	}
+	return key
 }
 
 func intersectValues(values1 []byte, values2 []byte) []byte {
