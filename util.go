@@ -3,7 +3,7 @@ package main
 import "strconv"
 import "net/url"
 
-const HEX_CHARS string = "0123456789ABCDEF";
+const HEX_CHARS string = "0123456789ABCDEF"
 
 func decodeBase16(base16 string) []byte {
 	decoded := []byte{}
@@ -20,9 +20,9 @@ func unescape(str []byte) []byte {
 }
 
 func checksum(data []byte) byte {
-	var sum = byte(0);
+	var sum = byte(0)
 	for _, v := range data {
-		sum += v % 16;
+		sum += v % 16
 	}
-	return sum % 16;
+	return sum % 16
 }

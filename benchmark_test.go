@@ -6,11 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const SampleSize int = 10
+const SampleSize int = 100
 
-func findPossibleKeyLengthsWorker(probabilityByPosition []map[byte]float64, jobs <-chan mapData, results chan<- []int) {
+func findPossibleKeyLengthsWorker(valuesByPosition [][]byte, jobs <-chan mapData, results chan<- []int) {
 	for j := range jobs {
-		result := findPossibleKeyLengths(j, probabilityByPosition)
+		result := findPossibleKeyLengths(j, valuesByPosition)
 		results <- result
 	}
 }
@@ -18,14 +18,14 @@ func findPossibleKeyLengthsWorker(probabilityByPosition []map[byte]float64, jobs
 func TestBenchmarkLength(t *testing.T) {
 	db := connect()
 	mapsData := getKnownMapsData(db)
-	probabilityByPosition := getValuesProbabilityByPosition(mapsData)
+	valuesByPosition := getValuesByPosition(mapsData)
 
 	mapCount := len(mapsData)
 	results := make(chan []int, mapCount)
 	jobs := make(chan mapData, mapCount)
 
 	for w := 0; w < 8; w++ {
-		go findPossibleKeyLengthsWorker(probabilityByPosition, jobs, results)
+		go findPossibleKeyLengthsWorker(valuesByPosition, jobs, results)
 	}
 
 	for i := 0; i < SampleSize; i++ {

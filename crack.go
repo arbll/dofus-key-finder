@@ -12,34 +12,34 @@ func main() {
 	}
 }
 
-func findPossibleKeyLengths(targetMap mapData, probabilityByPosition []map[byte]float64) []int {
+func findPossibleKeyLengths(targetMap mapData, valuesByPosition [][]byte) []int {
 	possibleKeyLengths := []int{}
 	for i := KEY_SIZE_MIN; i < KEY_SIZE_MAX; i++ {
-		if keyLengthIsPossible(i, targetMap, probabilityByPosition) {
+		if keyLengthIsPossible(i, targetMap, valuesByPosition) {
 			possibleKeyLengths = append(possibleKeyLengths, i)
 		}
 	}
 	return possibleKeyLengths
 }
 
-func findFirstPossibleKeyLength(targetMap mapData, probabilityByPosition []map[byte]float64) int {
+func findFirstPossibleKeyLength(targetMap mapData, valuesByPosition [][]byte) int {
 	for i := KEY_SIZE_MIN; i < KEY_SIZE_MAX; i++ {
-		if keyLengthIsPossible(i, targetMap, probabilityByPosition) {
+		if keyLengthIsPossible(i, targetMap, valuesByPosition) {
 			return i
 		}
 	}
 	return 0
 }
 
-func keyLengthIsPossible(keyLength int, targetMap mapData, probabilityByPosition []map[byte]float64) bool {
+func keyLengthIsPossible(keyLength int, targetMap mapData, valuesByPosition [][]byte) bool {
 	data := decodeBase16(targetMap.data)
 	for i := 0; i < keyLength; i++ {
 		for j := i; j+keyLength < len(data); j += keyLength {
 			position1 := j % CELL_SIZE
 			position2 := (j + keyLength) % CELL_SIZE
-			probabilityForXoredPositions := getXoredValuesProbabilityForPositions(position1, position2, probabilityByPosition)
+			valuesForXoredPositions := getXoredValuesForPositions(position1, position2, valuesByPosition)
 			xoredValue := data[j] ^ data[j+keyLength]
-			if getValueProbability(xoredValue, probabilityForXoredPositions) == 0 {
+			if !containsValue(valuesForXoredPositions, xoredValue) {
 				return false
 			}
 		}
@@ -50,10 +50,9 @@ func keyLengthIsPossible(keyLength int, targetMap mapData, probabilityByPosition
 func findPossibleDecryptedData(targetMap mapData, mapsData []mapData) [][]byte {
 	log.Println("Finding decrypted data for ", targetMap.id)
 
-	probabilityByPosition := getValuesProbabilityByPosition(mapsData)
-	valuesByPosition := getValuesByPosition(probabilityByPosition)
+	valuesByPosition := getValuesByPosition(mapsData)
 
-	keyLength := findFirstPossibleKeyLength(targetMap, probabilityByPosition)
+	keyLength := findFirstPossibleKeyLength(targetMap, valuesByPosition)
 	log.Println("Found keyLength:", keyLength)
 
 	data := decodeBase16(targetMap.data)

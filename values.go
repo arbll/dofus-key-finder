@@ -29,7 +29,8 @@ func getValuesProbabilityAtPosition(mapsData []mapData, position int) map[byte]f
 	return valueProbabilityMap
 }
 
-func getValuesByPosition(probabilityByPosition []map[byte]float64) [][]byte {
+func getValuesByPosition(mapsData []mapData) [][]byte {
+	probabilityByPosition := getValuesProbabilityByPosition(mapsData)
 	valuesByPosition := make([][]byte, CELL_SIZE)
 	for c, vp := range probabilityByPosition {
 		values := make([]byte, len(vp))
@@ -54,20 +55,15 @@ func getValueProbability(value byte, probability map[byte]float64) float64 {
 	return 0
 }
 
-func getXoredValuesProbabilityForPositions(firstPosition int, secondPosition int, probabilityByPosition []map[byte]float64) map[byte]float64 {
-	valueProbabilityMap := make(map[byte]float64)
-	for v1, p1 := range probabilityByPosition[firstPosition] {
-		for v2, p2 := range probabilityByPosition[secondPosition] {
+func getXoredValuesForPositions(firstPosition int, secondPosition int, valuesByPosition [][]byte) []byte {
+	valuesMap := []byte{}
+	for _, v1 := range valuesByPosition[firstPosition] {
+		for _, v2 := range valuesByPosition[secondPosition] {
 			v := v1 ^ v2
-			p := p1 * p2
-			if probability, contains := valueProbabilityMap[v]; contains {
-				valueProbabilityMap[v] = p + probability
-			} else {
-				valueProbabilityMap[v] = p
-			}
+			valuesMap = appendValueIfMissing(valuesMap, v)
 		}
 	}
-	return valueProbabilityMap
+	return valuesMap
 }
 
 func getPossibleValuesAtPositionFromXoredValue(xoredValue byte, values []byte, valuesForXor []byte) []byte {
@@ -76,9 +72,27 @@ func getPossibleValuesAtPositionFromXoredValue(xoredValue byte, values []byte, v
 		for _, v2 := range valuesForXor {
 			v := v1 ^ v2
 			if v == xoredValue {
-				possibleValues = append(possibleValues, v1)
+				possibleValues = appendValueIfMissing(possibleValues, v1)
 			}
 		}
 	}
 	return possibleValues
+}
+
+func appendValueIfMissing(values []byte, value byte) []byte {
+	for _, v := range values {
+		if v == value {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func containsValue(values []byte, value byte) bool {
+	for _, v := range values {
+		if v == value {
+			return true
+		}
+	}
+	return false
 }
