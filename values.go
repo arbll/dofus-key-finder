@@ -2,7 +2,7 @@ package main
 
 func getValuesProbabilityByPosition(mapsData []mapData) []map[byte]float64 {
 	probabilityByPosition := []map[byte]float64{}
-	for i := 0; i < CELL_SIZE; i++ {
+	for i := 0; i < CellSize; i++ {
 		probabilityByPosition = append(probabilityByPosition, getValuesProbabilityAtPosition(mapsData, i))
 	}
 	return probabilityByPosition
@@ -13,7 +13,7 @@ func getValuesProbabilityAtPosition(mapsData []mapData, position int) map[byte]f
 	valueTotalCount := 0
 	for _, md := range mapsData {
 		data := md.decryptedData
-		for i := position; i < len(data); i += CELL_SIZE {
+		for i := position; i < len(data); i += CellSize {
 			valueTotalCount++
 			if count, contains := valueCountMap[data[i]]; contains {
 				valueCountMap[data[i]] = count + 1
@@ -31,7 +31,7 @@ func getValuesProbabilityAtPosition(mapsData []mapData, position int) map[byte]f
 
 func getValuesByPosition(mapsData []mapData) [][]byte {
 	probabilityByPosition := getValuesProbabilityByPosition(mapsData)
-	valuesByPosition := make([][]byte, CELL_SIZE)
+	valuesByPosition := make([][]byte, CellSize)
 	for c, vp := range probabilityByPosition {
 		values := make([]byte, len(vp))
 		i := 0

@@ -4,14 +4,14 @@ import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
 import "fmt"
 
-const CELL_SIZE int = 10
-const KEY_SIZE_MIN int = 256 / 2
-const KEY_SIZE_MAX int = 554 / 2
+const CellSize int = 10
+const KeySizeMin int = 256 / 2
+const KeySizeMax int = 554 / 2
 
 type mapData struct {
-	id int
-	data string
-	key string
+	id            int
+	data          string
+	key           string
 	decryptedData string
 }
 

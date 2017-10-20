@@ -10,7 +10,7 @@ func main() {
 
 func findPossibleKeyLengths(targetMap mapData, valuesByPosition [][]byte) []int {
 	possibleKeyLengths := []int{}
-	for i := KEY_SIZE_MIN; i < KEY_SIZE_MAX; i++ {
+	for i := KeySizeMin; i < KeySizeMax; i++ {
 		if keyLengthIsPossible(i, targetMap, valuesByPosition) {
 			possibleKeyLengths = append(possibleKeyLengths, i)
 		}
@@ -19,7 +19,7 @@ func findPossibleKeyLengths(targetMap mapData, valuesByPosition [][]byte) []int 
 }
 
 func findFirstPossibleKeyLength(targetMap mapData, valuesByPosition [][]byte) int {
-	for i := KEY_SIZE_MIN; i < KEY_SIZE_MAX; i++ {
+	for i := KeySizeMin; i < KeySizeMax; i++ {
 		if keyLengthIsPossible(i, targetMap, valuesByPosition) {
 			return i
 		}
@@ -31,8 +31,8 @@ func keyLengthIsPossible(keyLength int, targetMap mapData, valuesByPosition [][]
 	data := decodeBase16(targetMap.data)
 	for i := 0; i < keyLength; i++ {
 		for j := i; j+keyLength < len(data); j += keyLength {
-			position1 := j % CELL_SIZE
-			position2 := (j + keyLength) % CELL_SIZE
+			position1 := j % CellSize
+			position2 := (j + keyLength) % CellSize
 			valuesForXoredPositions := getXoredValuesForPositions(position1, position2, valuesByPosition)
 			xoredValue := data[j] ^ data[j+keyLength]
 			if !containsValue(valuesForXoredPositions, xoredValue) {
@@ -58,8 +58,8 @@ func findPossibleDecryptedDataAndKeyLength(targetMap mapData, mapsData []mapData
 func initializeDecryptedData(dataLength int, valuesByPosition [][]byte) [][]byte {
 	decryptedData := make([][]byte, dataLength)
 	for i := 0; i < dataLength; i++ {
-		decryptedData[i] = make([]byte, len(valuesByPosition[i%CELL_SIZE]))
-		copy(decryptedData[i], valuesByPosition[i%CELL_SIZE])
+		decryptedData[i] = make([]byte, len(valuesByPosition[i%CellSize]))
+		copy(decryptedData[i], valuesByPosition[i%CellSize])
 	}
 	return decryptedData
 }
