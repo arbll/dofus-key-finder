@@ -1,14 +1,10 @@
 package main
 
-import (
-	"log"
-)
-
 func main() {
 	db := connect()
 	mapsData := getKnownMapsData(db)
 	for i := 0; i < 100; i++ {
-		findPossibleDecryptedData(mapsData[i], mapsData)
+		findPossibleDecryptedDataAndKeyLength(mapsData[i], mapsData)
 	}
 }
 
@@ -47,20 +43,16 @@ func keyLengthIsPossible(keyLength int, targetMap mapData, valuesByPosition [][]
 	return true
 }
 
-func findPossibleDecryptedData(targetMap mapData, mapsData []mapData) [][]byte {
-	log.Println("Finding decrypted data for ", targetMap.id)
-
+func findPossibleDecryptedDataAndKeyLength(targetMap mapData, mapsData []mapData) ([][]byte, int) {
 	valuesByPosition := getValuesByPosition(mapsData)
 
 	keyLength := findFirstPossibleKeyLength(targetMap, valuesByPosition)
-	log.Println("Found keyLength:", keyLength)
 
 	data := decodeBase16(targetMap.data)
 	decryptedData := initializeDecryptedData(len(data), valuesByPosition)
 
 	decryptedData = eliminateImpossibleValuesForDecryptedData(data, keyLength, decryptedData, valuesByPosition)
-	log.Println("Decryption percent : ", decryptionPercent(keyLength, decryptedData), "%")
-	return decryptedData
+	return decryptedData, keyLength
 }
 
 func initializeDecryptedData(dataLength int, valuesByPosition [][]byte) [][]byte {
