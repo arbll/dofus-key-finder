@@ -1,13 +1,25 @@
 package main
 
-import "fmt"
+import (
+	"encoding/hex"
+	"fmt"
+)
 
 func main() {
 	db := connect()
 	mapsData := getKnownMapsData(db)
-	mapData := decodeBase16(mapsData[1].data)
+	fmt.Println(hex.EncodeToString(guessKey(mapsData[1], mapsData)) == mapsData[1].key)
+}
+
+func guessKey(targetMap mapData, mapsData []mapData) []byte {
+	mapData := decodeBase16(targetMap.data)
 	decryptedData, keyLength := findPossibleDecryptedDataAndKeyLength(mapData, mapsData)
-	fmt.Println(decryptedDataToKey(mapData, keyLength, decryptedData))
+	decryptionPercent := decryptionPercent(keyLength, decryptedData)
+	fmt.Printf("Map(%d): %f%% of the key found. length: (%d) type: (%d)\n", targetMap.id, decryptionPercent, keyLength, keyLength%CellSize)
+	if decryptionPercent == 100 {
+		return decryptedDataToKey(mapData, keyLength, decryptedData)
+	}
+	return []byte{}
 }
 
 func findPossibleKeyLengths(mapData []byte, valuesByPosition [][]byte) []int {
@@ -102,7 +114,22 @@ func decryptedDataToKey(mapData []byte, keyLength int, decryptedData [][]byte) [
 			key[i%keyLength] = decryptedData[i][0] ^ mapData[i]
 		}
 	}
-	return key
+	checksum := checksum(key)
+	return escape(rotateRight(key, int(checksum*2)))
+}
+
+func rotateRight(data []byte, n int) []byte {
+	rotatedData := make([]byte, len(data))
+	index := 0
+	for i := len(data) - n; i < len(data); i++ {
+		rotatedData[index] = data[i]
+		index++
+	}
+	for i := 0; i < len(data)-n; i++ {
+		rotatedData[index] = data[i]
+		index++
+	}
+	return rotatedData
 }
 
 func intersectValues(values1 []byte, values2 []byte) []byte {

@@ -1,9 +1,9 @@
 package main
 
-import "strconv"
-import "net/url"
-
-const HEX_CHARS string = "0123456789ABCDEF"
+import (
+	"net/url"
+	"strconv"
+)
 
 func decodeBase16(base16 string) []byte {
 	decoded := []byte{}
@@ -15,14 +15,29 @@ func decodeBase16(base16 string) []byte {
 }
 
 func unescape(str []byte) []byte {
-	d, _ := url.QueryUnescape(string(str))
+	d, _ := url.PathUnescape(string(str))
 	return []byte(d)
 }
 
-func checksum(data []byte) byte {
-	var sum = byte(0)
-	for _, v := range data {
-		sum += v % 16
+func escape(str []byte) []byte {
+	escapedString := ""
+	for _, c := range str {
+		switch c {
+		case '+':
+			escapedString += "%2B"
+		case '%':
+			escapedString += "%25"
+		default:
+			escapedString += string(c)
+		}
 	}
-	return sum % 16
+	return []byte(escapedString)
+}
+
+func checksum(data []byte) byte {
+	sum := 0
+	for _, v := range data {
+		sum += int(v) % 16
+	}
+	return byte(sum % 16)
 }
