@@ -1,11 +1,25 @@
 package dfkey
 
+import "sync"
+
+var mutexProbability = &sync.Mutex{}
+var valuesProbabilityByPosition []map[byte]float64
+var mutexValues = &sync.Mutex{}
+var valuesByPosition [][]byte
+
 func getValuesProbabilityByPosition(mapsData []MapData) []map[byte]float64 {
+	mutexProbability.Lock()
+	if valuesProbabilityByPosition != nil {
+		mutexProbability.Unlock()
+		return valuesProbabilityByPosition
+	}
 	probabilityByPosition := []map[byte]float64{}
 	for i := 0; i < CellSize; i++ {
 		probabilityByPosition = append(probabilityByPosition, getValuesProbabilityAtPosition(mapsData, i))
 	}
-	return probabilityByPosition
+	valuesProbabilityByPosition = probabilityByPosition
+	mutexProbability.Unlock()
+	return valuesProbabilityByPosition
 }
 
 func getValuesProbabilityAtPosition(mapsData []MapData, position int) map[byte]float64 {
@@ -30,8 +44,13 @@ func getValuesProbabilityAtPosition(mapsData []MapData, position int) map[byte]f
 }
 
 func getValuesByPosition(mapsData []MapData) [][]byte {
+	mutexValues.Lock()
+	if valuesByPosition != nil {
+		mutexValues.Unlock()
+		return valuesByPosition
+	}
 	probabilityByPosition := getValuesProbabilityByPosition(mapsData)
-	valuesByPosition := make([][]byte, CellSize)
+	valuesByPosition = make([][]byte, CellSize)
 	for c, vp := range probabilityByPosition {
 		values := make([]byte, len(vp))
 		i := 0
@@ -41,6 +60,7 @@ func getValuesByPosition(mapsData []MapData) [][]byte {
 		}
 		valuesByPosition[c] = values
 	}
+	mutexValues.Unlock()
 	return valuesByPosition
 }
 
