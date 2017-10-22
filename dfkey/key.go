@@ -2,6 +2,7 @@ package dfkey
 
 import (
 	"fmt"
+	"math"
 )
 
 //GuessKey tries to find the key for a given map
@@ -13,7 +14,8 @@ func GuessKey(targetMap MapData, mapsData []MapData) []byte {
 	if decryptionPercent == 100 {
 		return decryptedDataToKey(mapData, keyLength, decryptedData)
 	}
-	return []byte{}
+	fmt.Printf("Map(%d): Trying statistical approach\n", targetMap.Id)
+	return selectBestKey(mapsData, mapData, keyLength, decryptedData)
 }
 
 func findPossibleKeyLengths(mapData []byte, valuesByPosition [][]byte) []int {
@@ -99,6 +101,43 @@ func eliminateValuesWithInvalidKeyInDecryptedData(mapData []byte, decryptedData 
 		decryptedData[i] = newValues
 	}
 	return decryptedData
+}
+
+func selectBestKey(mapsData []MapData, mapData []byte, keyLength int, decryptedData [][]byte) []byte {
+	bestKey := make([]byte, keyLength)
+	probabilityByPosition := getValuesProbabilityByPosition(mapsData)
+	dataLength := len(mapData)
+	for i := 0; i < keyLength; i++ {
+		for j := i; j < dataLength; j += keyLength {
+			if len(decryptedData[j]) == 1 {
+				bestKey[i] = decryptedData[j][0] ^ mapData[j]
+			}
+		}
+	}
+	for i := 0; i < keyLength; i++ {
+		if len(decryptedData[i]) > 1 {
+			bestDistance := math.MaxFloat64
+			bestKeyPart := byte(0)
+			for _, v := range decryptedData[i] {
+				keyPart := v ^ mapData[i]
+				distance := float64(0)
+				for j := i; j < dataLength; j += keyLength {
+					distance += computeDistance(keyPart^mapData[j], probabilityByPosition[j%CellSize])
+				}
+				if distance < bestDistance {
+					bestDistance = distance
+					bestKeyPart = keyPart
+				}
+			}
+			bestKey[i] = bestKeyPart
+		}
+	}
+	checksum := checksum(bestKey)
+	return escape(rotateRight(bestKey, int(checksum*2)))
+}
+
+func computeDistance(value byte, probabilitiesForPosition map[byte]float64) float64 {
+	return 1 - probabilitiesForPosition[value]
 }
 
 func decryptedDataToKey(mapData []byte, keyLength int, decryptedData [][]byte) []byte {

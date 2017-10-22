@@ -36,15 +36,15 @@ func checkGuessKeyDataWorker(mapsData []MapData, jobs <-chan MapData, results ch
 	for j := range jobs {
 		if j.key != "" {
 			key := GuessKey(j, mapsData)
-			if len(key) > 0 {
-				if hex.EncodeToString(key) == j.key {
-					results <- 1
-				} else {
-					results <- 0
-				}
+			if len(key) > 0 && hex.EncodeToString(key) == j.key {
+				results <- 1
+			} else {
+				results <- 0
 			}
+
+		} else {
+			panic("Unknown key")
 		}
-		results <- -1
 	}
 }
 
@@ -129,9 +129,13 @@ func TestBenchmarkGuessKey(t *testing.T) {
 	for w := 0; w < ProcCount; w++ {
 		go checkGuessKeyDataWorker(mapsData, jobs, results)
 	}
+	size := SampleSize
+	for i := 0; i < size; i++ {
+		if mapsData[i].key != "" {
+			jobs <- mapsData[i]
+		} else {
 
-	for i := 0; i < SampleSize; i++ {
-		jobs <- mapsData[i]
+		}
 	}
 
 	close(jobs)
