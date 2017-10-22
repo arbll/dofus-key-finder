@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,22 @@ func findPossibleDecryptedDataWorker(mapsData []mapData, jobs <-chan mapData, re
 		mapData := decodeBase16(j.data)
 		decryptedData, keyLength := findPossibleDecryptedDataAndKeyLength(mapData, mapsData)
 		results <- FindPossibleDecryptedDataResult{decryptedData, keyLength}
+	}
+}
+
+func checkGuessKeyDataWorker(mapsData []mapData, jobs <-chan mapData, results chan<- int) {
+	for j := range jobs {
+		if j.key != "" {
+			key := guessKey(j, mapsData)
+			if len(key) > 0 {
+				if hex.EncodeToString(key) == j.key {
+					results <- 1
+				} else {
+					results <- 0
+				}
+			}
+		}
+		results <- -1
 	}
 }
 
@@ -99,4 +116,38 @@ func TestBenchmarkDecryptData(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		t.Logf("Result for keyType %d: mean(%f)", i, sumPercentByKeyType[i]/float64(countByKeyType[i]))
 	}
+}
+
+func TestBenchmarkGuessKey(t *testing.T) {
+	db := connect()
+	mapsData := getKnownMapsData(db)
+
+	results := make(chan int, SampleSize)
+	jobs := make(chan mapData, SampleSize)
+
+	for w := 0; w < ProcCount; w++ {
+		go checkGuessKeyDataWorker(mapsData, jobs, results)
+	}
+
+	for i := 0; i < SampleSize; i++ {
+		jobs <- mapsData[i]
+	}
+
+	close(jobs)
+
+	goodCount := 0
+	badCount := 0
+	for i := 0; i < SampleSize; i++ {
+		result := <-results
+		switch result {
+		case 0:
+			badCount++
+		case 1:
+			goodCount++
+		default:
+		}
+	}
+
+	t.Logf("Result for guessKey: %f%% good, %f%% bad", float64(goodCount)/float64(goodCount+badCount)*100, float64(badCount)/float64(goodCount+badCount)*100)
+	assert.Equal(t, 0, badCount)
 }
