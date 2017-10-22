@@ -1,6 +1,6 @@
-package main
+package dfkey
 
-func getValuesProbabilityByPosition(mapsData []mapData) []map[byte]float64 {
+func getValuesProbabilityByPosition(mapsData []MapData) []map[byte]float64 {
 	probabilityByPosition := []map[byte]float64{}
 	for i := 0; i < CellSize; i++ {
 		probabilityByPosition = append(probabilityByPosition, getValuesProbabilityAtPosition(mapsData, i))
@@ -8,7 +8,7 @@ func getValuesProbabilityByPosition(mapsData []mapData) []map[byte]float64 {
 	return probabilityByPosition
 }
 
-func getValuesProbabilityAtPosition(mapsData []mapData, position int) map[byte]float64 {
+func getValuesProbabilityAtPosition(mapsData []MapData, position int) map[byte]float64 {
 	valueCountMap := make(map[byte]int)
 	valueTotalCount := 0
 	for _, md := range mapsData {
@@ -29,7 +29,7 @@ func getValuesProbabilityAtPosition(mapsData []mapData, position int) map[byte]f
 	return valueProbabilityMap
 }
 
-func getValuesByPosition(mapsData []mapData) [][]byte {
+func getValuesByPosition(mapsData []MapData) [][]byte {
 	probabilityByPosition := getValuesProbabilityByPosition(mapsData)
 	valuesByPosition := make([][]byte, CellSize)
 	for c, vp := range probabilityByPosition {

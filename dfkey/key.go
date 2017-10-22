@@ -1,21 +1,15 @@
-package main
+package dfkey
 
 import (
-	"encoding/hex"
 	"fmt"
 )
 
-func main() {
-	db := connect()
-	mapsData := getKnownMapsData(db)
-	fmt.Println(hex.EncodeToString(guessKey(mapsData[1], mapsData)) == mapsData[1].key)
-}
-
-func guessKey(targetMap mapData, mapsData []mapData) []byte {
+//GuessKey tries to find the key for a given map
+func GuessKey(targetMap MapData, mapsData []MapData) []byte {
 	mapData := decodeBase16(targetMap.data)
 	decryptedData, keyLength := findPossibleDecryptedDataAndKeyLength(mapData, mapsData)
 	decryptionPercent := decryptionPercent(keyLength, decryptedData)
-	fmt.Printf("Map(%d): %f%% of the key found. length: (%d) type: (%d)\n", targetMap.id, decryptionPercent, keyLength, keyLength%CellSize)
+	fmt.Printf("Map(%d): %f%% of the key found. length: (%d) type: (%d)\n", targetMap.Id, decryptionPercent, keyLength, keyLength%CellSize)
 	if decryptionPercent == 100 {
 		return decryptedDataToKey(mapData, keyLength, decryptedData)
 	}
@@ -56,7 +50,7 @@ func keyLengthIsPossible(keyLength int, mapData []byte, valuesByPosition [][]byt
 	return true
 }
 
-func findPossibleDecryptedDataAndKeyLength(mapData []byte, mapsData []mapData) ([][]byte, int) {
+func findPossibleDecryptedDataAndKeyLength(mapData []byte, mapsData []MapData) ([][]byte, int) {
 	valuesByPosition := getValuesByPosition(mapsData)
 
 	keyLength := findFirstPossibleKeyLength(mapData, valuesByPosition)

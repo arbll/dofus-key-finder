@@ -1,4 +1,4 @@
-package main
+package dfkey
 
 import (
 	"encoding/hex"
@@ -9,8 +9,9 @@ import (
 
 const ProcCount int = 8
 const SampleSize int = 100
+const ConnectString string = "root:@/AMPS"
 
-func findPossibleKeyLengthsWorker(valuesByPosition [][]byte, jobs <-chan mapData, results chan<- []int) {
+func findPossibleKeyLengthsWorker(valuesByPosition [][]byte, jobs <-chan MapData, results chan<- []int) {
 	for j := range jobs {
 		mapData := decodeBase16(j.data)
 		result := findPossibleKeyLengths(mapData, valuesByPosition)
@@ -23,7 +24,7 @@ type FindPossibleDecryptedDataResult struct {
 	keyLength     int
 }
 
-func findPossibleDecryptedDataWorker(mapsData []mapData, jobs <-chan mapData, results chan<- FindPossibleDecryptedDataResult) {
+func findPossibleDecryptedDataWorker(mapsData []MapData, jobs <-chan MapData, results chan<- FindPossibleDecryptedDataResult) {
 	for j := range jobs {
 		mapData := decodeBase16(j.data)
 		decryptedData, keyLength := findPossibleDecryptedDataAndKeyLength(mapData, mapsData)
@@ -31,10 +32,10 @@ func findPossibleDecryptedDataWorker(mapsData []mapData, jobs <-chan mapData, re
 	}
 }
 
-func checkGuessKeyDataWorker(mapsData []mapData, jobs <-chan mapData, results chan<- int) {
+func checkGuessKeyDataWorker(mapsData []MapData, jobs <-chan MapData, results chan<- int) {
 	for j := range jobs {
 		if j.key != "" {
-			key := guessKey(j, mapsData)
+			key := GuessKey(j, mapsData)
 			if len(key) > 0 {
 				if hex.EncodeToString(key) == j.key {
 					results <- 1
@@ -48,12 +49,12 @@ func checkGuessKeyDataWorker(mapsData []mapData, jobs <-chan mapData, results ch
 }
 
 func TestBenchmarkLength(t *testing.T) {
-	db := connect()
-	mapsData := getKnownMapsData(db)
+	db := ConnectDB(ConnectString)
+	mapsData := GetKnownMapsData(db)
 	valuesByPosition := getValuesByPosition(mapsData)
 
 	results := make(chan []int, SampleSize)
-	jobs := make(chan mapData, SampleSize)
+	jobs := make(chan MapData, SampleSize)
 
 	for w := 0; w < ProcCount; w++ {
 		go findPossibleKeyLengthsWorker(valuesByPosition, jobs, results)
@@ -90,11 +91,11 @@ func TestBenchmarkLength(t *testing.T) {
 }
 
 func TestBenchmarkDecryptData(t *testing.T) {
-	db := connect()
-	mapsData := getKnownMapsData(db)
+	db := ConnectDB(ConnectString)
+	mapsData := GetKnownMapsData(db)
 
 	results := make(chan FindPossibleDecryptedDataResult, SampleSize)
-	jobs := make(chan mapData, SampleSize)
+	jobs := make(chan MapData, SampleSize)
 
 	for w := 0; w < ProcCount; w++ {
 		go findPossibleDecryptedDataWorker(mapsData, jobs, results)
@@ -119,11 +120,11 @@ func TestBenchmarkDecryptData(t *testing.T) {
 }
 
 func TestBenchmarkGuessKey(t *testing.T) {
-	db := connect()
-	mapsData := getKnownMapsData(db)
+	db := ConnectDB(ConnectString)
+	mapsData := GetKnownMapsData(db)
 
 	results := make(chan int, SampleSize)
-	jobs := make(chan mapData, SampleSize)
+	jobs := make(chan MapData, SampleSize)
 
 	for w := 0; w < ProcCount; w++ {
 		go checkGuessKeyDataWorker(mapsData, jobs, results)

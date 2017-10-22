@@ -1,4 +1,4 @@
-package main
+package dfkey
 
 import (
 	"net/url"

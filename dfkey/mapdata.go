@@ -1,4 +1,4 @@
-package main
+package dfkey
 
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
@@ -10,30 +10,33 @@ const KeySizeMax int = 554 / 2
 const KeyValueMin byte = 32
 const KeyValueMax byte = 127
 
-type mapData struct {
-	id            int
+//MapData contains data for a map
+type MapData struct {
+	Id            int
 	data          string
 	key           string
 	decryptedData string
 }
 
-func connect() *sql.DB {
-	var db, err = sql.Open("mysql", "root:@/AMPS")
+//ConnectDB connects to the database containing the maps
+func ConnectDB(connectionString string) *sql.DB {
+	var db, err = sql.Open("mysql", connectionString)
 	if err != nil {
 		fmt.Printf("Scan: %v", err)
 	}
 	return db
 }
 
-func getKnownMapsData(db *sql.DB) []mapData {
+//GetKnownMapsData returns all the known maps
+func GetKnownMapsData(db *sql.DB) []MapData {
 	rows, err := db.Query("SELECT id,mapData,`key`,decryptedData FROM static_maps WHERE `key` IS NOT NULL")
 	if err != nil {
 		fmt.Printf("Scan: %v", err)
 	}
-	var mapsData []mapData
+	var mapsData []MapData
 	for rows.Next() {
-		var d mapData
-		err = rows.Scan(&d.id, &d.data, &d.key, &d.decryptedData)
+		var d MapData
+		err = rows.Scan(&d.Id, &d.data, &d.key, &d.decryptedData)
 		if err != nil {
 			fmt.Printf("Scan: %v", err)
 		}
