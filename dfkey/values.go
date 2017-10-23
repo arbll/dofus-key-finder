@@ -26,13 +26,15 @@ func getValuesProbabilityAtPosition(mapsData []MapData, position int) map[byte]f
 	valueCountMap := make(map[byte]int)
 	valueTotalCount := 0
 	for _, md := range mapsData {
-		data := md.decryptedData
-		for i := position; i < len(data); i += CellSize {
-			valueTotalCount++
-			if count, contains := valueCountMap[data[i]]; contains {
-				valueCountMap[data[i]] = count + 1
-			} else {
-				valueCountMap[data[i]] = 1
+		if md.decryptedData != "" {
+			data := md.decryptedData
+			for i := position; i < len(data); i += CellSize {
+				valueTotalCount++
+				if count, contains := valueCountMap[data[i]]; contains {
+					valueCountMap[data[i]] = count + 1
+				} else {
+					valueCountMap[data[i]] = 1
+				}
 			}
 		}
 	}

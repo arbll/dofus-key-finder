@@ -36,7 +36,7 @@ func checkGuessKeyDataWorker(mapsData []MapData, jobs <-chan MapData, results ch
 	for j := range jobs {
 		if j.key != "" {
 			key := GuessKey(j, mapsData)
-			if len(key) > 0 && hex.EncodeToString(key) == j.key {
+			if hex.EncodeToString(key) == j.key {
 				results <- 1
 			} else {
 				results <- 0
