@@ -26,7 +26,7 @@ If you do not want to use this database, you will need a database with a table n
 + `key(text)` the key of the map if you know it or NULL if you want to use this tool to find it 
 + `decryptedData(text)` the decrypted data of the map  or NULL if you don't have it
 
-### Important
+### Important if you build your own database
 
 To decrypt a map you need to have it in the database (`id` and `mapData` must be filled).
 
@@ -43,7 +43,7 @@ For now the keys are outputted in the console.
 
 The tool will get you the correct key arround 96% percent of the time (tested on the known keys). It is not possible in my opinion to go any further than that.
 
-When you get the output `Map(1001): 99.05% of the key found.` it means that at least 99.05% of the key is correct. The other part of the key is guessed using a statistical approach wich may fail sometimes. Even if this number is low may still have good results.
+When you get the output `Map(1001): 99.05% of the key found.` it means that at least 99.05% of the key is correct. The other part of the key is guessed using a statistical approach wich may fail sometimes. Even if this number is low you may still have good results.
 
 ## Contributing
 
