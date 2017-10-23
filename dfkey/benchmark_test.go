@@ -134,7 +134,7 @@ func TestBenchmarkGuessKey(t *testing.T) {
 		if mapsData[i].key != "" {
 			jobs <- mapsData[i]
 		} else {
-
+			size++
 		}
 	}
 

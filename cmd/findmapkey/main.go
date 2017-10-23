@@ -24,10 +24,14 @@ func main() {
 	mapsData := dfkey.GetKnownMapsData(dfkey.ConnectDB(*dbPtr))
 	for _, m := range strings.Split(*mapsPtr, ",") {
 		mapID, _ := strconv.Atoi(m)
-		key := dfkey.GuessKey(findMapByID(mapID, mapsData), mapsData)
-		if len(key) > 0 {
-			fmt.Printf("Found key for %d:\n%s\n", mapID, hex.EncodeToString(key))
+		maps := findMapByID(mapID, mapsData)
+		for _, targetMap := range maps {
+			key := dfkey.GuessKey(targetMap, mapsData)
+			if len(key) > 0 {
+				fmt.Printf("Found key for %d_%s:\n%s\n", mapID, targetMap.Date, hex.EncodeToString(key))
+			}
 		}
+
 	}
 
 }
@@ -37,11 +41,12 @@ func printBanner() {
 	fmt.Printf("%s\n________________________________________________________________________________\n", banner)
 }
 
-func findMapByID(mapID int, mapsData []dfkey.MapData) dfkey.MapData {
+func findMapByID(mapID int, mapsData []dfkey.MapData) []dfkey.MapData {
+	maps := []dfkey.MapData{}
 	for _, m := range mapsData {
 		if m.Id == mapID {
-			return m
+			maps = append(maps, m)
 		}
 	}
-	panic("Map does not exist")
+	return maps
 }
