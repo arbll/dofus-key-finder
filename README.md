@@ -22,13 +22,14 @@ You can find such a database (ready to use) [here](http://www.swf-redirect.com/t
 
 If you do not want to use this database, you will need a database with a table named `static_maps` containing the following columns :
 + `id(int)` the id of the map
++ `date(text)` the date/version of the map
 + `mapData(text)` the encrypted data of the map in hexadecimal
 + `key(text)` the key of the map if you know it or NULL if you want to use this tool to find it 
 + `decryptedData(text)` the decrypted data of the map  or NULL if you don't have it
 
 ### Important if you build your own database
 
-To decrypt a map you need to have it in the database (`id` and `mapData` must be filled).
+To decrypt a map you need to have it in the database (`id`, `mapData` and `date` must be filled).
 
 The more `decryptedData` you have the better the tool will work.
 
