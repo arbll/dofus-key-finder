@@ -30,6 +30,30 @@ func ConnectDB(connectionString string) *sql.DB {
 	if err != nil {
 		fmt.Printf("Scan: %v", err)
 	}
+
+	createOutputTable := "CREATE TABLE IF NOT EXISTS `output_maps` (" +
+		"`id` int(10) NOT NULL," +
+		"`date` varchar(32) NOT NULL DEFAULT ''," +
+		"`mapData` text," +
+		"`key` text," +
+		"`decryptedData` text," +
+		"`sa` int(11) DEFAULT NULL)"
+
+	addPrimaryKeys := "ALTER TABLE `output_maps` ADD PRIMARY KEY (`id`,`date`)"
+
+	stmt, err := db.Prepare(createOutputTable)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stmt.Exec()
+
+	stmt, err = db.Prepare(addPrimaryKeys)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stmt.Exec()
 	return db
 }
 
@@ -63,9 +87,27 @@ func GetKnownMapsData(db *sql.DB) []MapData {
 
 //SaveKey saves a map key
 func SaveKey(key string, mapData MapData, db *sql.DB) {
-	stmt, err := db.Prepare("UPDATE static_maps SET `key`=?, decryptedData=? WHERE id=? AND date=?")
-	if err != nil {
-		log.Fatal(err)
+	if rowExists(db, "SELECT id FROM output_maps WHERE id=? AND date=?", mapData.Id, mapData.Date) {
+		stmt, err := db.Prepare("UPDATE output_maps SET `key`=?, decryptedData=? WHERE id=? AND date=?")
+		if err != nil {
+			log.Fatal(err)
+		}
+		stmt.Exec(key, ApplyKeyToMap(key, mapData), mapData.Id, mapData.Date)
+	} else {
+		stmt, err := db.Prepare("INSERT INTO `output_maps` (`id`,date,mapData,`key`,decryptedData,sa) VALUES (?,?,?,?,?,?)")
+		if err != nil {
+			log.Fatal(err)
+		}
+		stmt.Exec(mapData.Id, mapData.Date, mapData.data, key, ApplyKeyToMap(key, mapData), mapData.SubArea)
 	}
-	stmt.Exec(key, ApplyKeyToMap(key, mapData), mapData.Id, mapData.Date)
+}
+
+func rowExists(db *sql.DB, query string, args ...interface{}) bool {
+	var exists bool
+	query = fmt.Sprintf("SELECT exists (%s)", query)
+	err := db.QueryRow(query, args...).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		log.Fatalf("error checking if row exists '%s' %v", args, err)
+	}
+	return exists
 }
