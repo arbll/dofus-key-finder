@@ -26,6 +26,7 @@ If you do not want to use this database, you will need a database with a table n
 + `mapData(text)` the encrypted data of the map in hexadecimal
 + `key(text)` the key of the map if you know it or NULL if you want to use this tool to find it 
 + `decryptedData(text)` the decrypted data of the map  or NULL if you don't have it
++ `sa(int)` subarea id of the map
 
 ### Important if you build your own database
 
@@ -37,9 +38,16 @@ The more `decryptedData` you have the better the tool will work.
 
 The usage of the tool is pretty straightforward :
 ```
-findmapkey -db="user:password@/dbname" -maps=1000,1001,...
+> findmapkey.exe -h
+Usage of findmapkey.exe:                                                                                                
+  -db string                                                                                                            
+        DB connection string. ex: -db="user:password@/dbname" (Required)                                                
+  -maps string                                                                                                          
+        MapIDs to be decrypted. ex: -maps=1000,1001 (Required)                                                          
+  -s    Save to the database.                                                                                           
+  -subareas string                                                                                                      
+        SubAreas to be used for data source. ex: -subareas=275,276                                                                                                               
 ```
-For now the keys are outputted in the console.
 ## Precision
 
 The tool will get you the correct key arround 96% percent of the time (tested on the known keys). It is not possible in my opinion to go any further than that.
