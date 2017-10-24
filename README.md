@@ -48,6 +48,8 @@ Usage of findmapkey.exe:
   -subareas string                   
         SubAreas to be used for data source. ex: -subareas=275,276
 ```
+**Do not add maps that are not properly decrypted (manually checked) to the database to avoid poisoning the data**
+
 If you have some troubles, you can look at the [issue tracker](https://github.com/Omen-/dofus-key-finder/issues).
 ## Precision
 
