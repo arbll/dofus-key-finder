@@ -57,6 +57,10 @@ func findPossibleDecryptedDataAndKeyLength(mapData []byte, mapsData []MapData) (
 
 	keyLength := findFirstPossibleKeyLength(mapData, valuesByPosition)
 
+	if keyLength == 0 {
+		panic("Could not find keyLength. This probably means you do not have enough decryptedData. Try without -subarea or add more decryptedData in the selected subarea.")
+	}
+
 	decryptedData := initializeDecryptedData(len(mapData), valuesByPosition)
 
 	decryptedData = eliminateImpossibleValuesInDecryptedData(mapData, keyLength, decryptedData, valuesByPosition)
