@@ -44,11 +44,18 @@ Usage of findmapkey.exe:
         DB connection string. ex: -db="user:password@/dbname" (Required)      
   -maps string                                                          
         MapIDs to be decrypted. ex: -maps=1000,1001 (Required) 
-  -s    Save to the database.  
+  -s    Save to the database (table ouput_maps).  
   -subareas string                   
         SubAreas to be used for data source. ex: -subareas=275,276
 ```
 **Do not add maps that are not properly decrypted (manually checked) to the static_maps table to avoid poisoning the data**
+
+### Flowchart to decrypt map X
+
+Between each try check if the map is working
+1. Try decrypting with the normal mode : findmapkey.exe -db="user:password@/dbname" -s -maps=X.id
+2. Try decrypting with the subarea mode : findmapkey.exe -db="user:password@/dbname" -s -maps=X -subareas=X.subareaId
+3. Try decrypting other maps in the same subarea, find the ones that are working and then add their key and decryptedData to static_maps. Retry 2.
 
 If you have some troubles, you can look at the [issue tracker](https://github.com/Omen-/dofus-key-finder/issues).
 ## Precision
