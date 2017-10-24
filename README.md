@@ -50,7 +50,7 @@ Usage of findmapkey.exe:
 ```
 **Do not add maps that are not properly decrypted (manually checked) to the static_maps table to avoid poisoning the data**
 
-### Flowchart to decrypt map X
+### Workflow to decrypt map X
 
 Between each try check if the map is working
 1. Try decrypting with the normal mode : `findmapkey.exe -db="user:password@/dbname" -s -maps=X.id`
