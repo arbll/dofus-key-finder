@@ -39,14 +39,14 @@ The more `decryptedData` you have the better the tool will work.
 The usage of the tool is pretty straightforward :
 ```
 > findmapkey.exe -h
-Usage of findmapkey.exe:                                                                                                
-  -db string                                                                                                            
-        DB connection string. ex: -db="user:password@/dbname" (Required)                                                
-  -maps string                                                                                                          
-        MapIDs to be decrypted. ex: -maps=1000,1001 (Required)                                                          
-  -s    Save to the database.                                                                                           
-  -subareas string                                                                                                      
-        SubAreas to be used for data source. ex: -subareas=275,276                                                                                                               
+Usage of findmapkey.exe:    
+  -db string  
+        DB connection string. ex: -db="user:password@/dbname" (Required)      
+  -maps string                                                          
+        MapIDs to be decrypted. ex: -maps=1000,1001 (Required) 
+  -s    Save to the database.  
+  -subareas string                   
+        SubAreas to be used for data source. ex: -subareas=275,276
 ```
 ## Precision
 
