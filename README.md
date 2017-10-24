@@ -48,6 +48,7 @@ Usage of findmapkey.exe:
   -subareas string                   
         SubAreas to be used for data source. ex: -subareas=275,276
 ```
+If you have some troubles, you can look at the [issue tracker](https://github.com/Omen-/dofus-key-finder/issues).
 ## Precision
 
 The tool will get you the correct key arround 96% percent of the time (tested on the known keys). It is not possible in my opinion to go any further than that.
