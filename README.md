@@ -55,7 +55,7 @@ Usage of findmapkey.exe:
 Between each try check if the map is working
 1. Try decrypting with the normal mode : `findmapkey.exe -db="user:password@/dbname" -s -maps=X.id`
 2. Try decrypting with the subarea mode : `findmapkey.exe -db="user:password@/dbname" -s -maps=X -subareas=X.subareaId`
-3. Try decrypting other maps in the same subarea, find the ones that are working and then add their key and `decryptedData` to `static_maps`. Retry 2.
+3. Try decrypting other maps in the same subarea, find the ones that are working and then add their `key` and `decryptedData` to `static_maps`. Retry 2.
 
 If you have some troubles, you can look at the [issue tracker](https://github.com/Omen-/dofus-key-finder/issues).
 ## Precision
