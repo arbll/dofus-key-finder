@@ -15,6 +15,7 @@ func main() {
 	dbPtr := flag.String("db", "", "DB connection string. ex: -db=\"user:password@/dbname\" (Required)")
 	mapsPtr := flag.String("maps", "", "MapIDs to be decrypted. ex: -maps=1000,1001 (Required)")
 	subAreaPtr := flag.String("subareas", "", "SubAreas to be used for data source. Use this only if you understand what you are doing. ex: -subareas=275,276 (Optional)")
+	savePtr := flag.Bool("s", false, "Save to the database.")
 
 	flag.Parse()
 	if *dbPtr == "" || *mapsPtr == "" {
@@ -22,8 +23,8 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
-
-	mapsData := dfkey.GetKnownMapsData(dfkey.ConnectDB(*dbPtr))
+	db := dfkey.ConnectDB(*dbPtr)
+	mapsData := dfkey.GetKnownMapsData(db)
 
 	if *subAreaPtr != "" {
 		subAreas := []int{}
@@ -38,9 +39,14 @@ func main() {
 		mapID, _ := strconv.Atoi(m)
 		maps := findMapByID(mapID, mapsData)
 		for _, targetMap := range maps {
-			key := dfkey.GuessKey(targetMap, mapsData)
+			key := hex.EncodeToString(dfkey.GuessKey(targetMap, mapsData))
 			if len(key) > 0 {
-				fmt.Printf("Found key for %d_%s:\n%s\n", mapID, targetMap.Date, hex.EncodeToString(key))
+				if *savePtr {
+					dfkey.SaveKey(key, targetMap, db)
+					fmt.Printf("Found key for %d_%s has been saved in the database\n", mapID, targetMap.Date)
+				} else {
+					fmt.Printf("Found key for %d_%s:\n%s\n%s\n", mapID, targetMap.Date, key, dfkey.ApplyKeyToMap(key, targetMap))
+				}
 			}
 		}
 

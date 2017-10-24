@@ -1,8 +1,12 @@
 package dfkey
 
-import "database/sql"
-import _ "github.com/go-sql-driver/mysql"
-import "fmt"
+import (
+	"database/sql"
+	"fmt"
+	"log"
+
+	_ "github.com/go-sql-driver/mysql"
+)
 
 const CellSize int = 10
 const KeySizeMin int = 256 / 2
@@ -55,4 +59,13 @@ func GetKnownMapsData(db *sql.DB) []MapData {
 		mapsData = append(mapsData, d)
 	}
 	return mapsData
+}
+
+//SaveKey saves a map key
+func SaveKey(key string, mapData MapData, db *sql.DB) {
+	stmt, err := db.Prepare("UPDATE static_maps SET `key`=?, decryptedData=? WHERE id=? AND date=?")
+	if err != nil {
+		log.Fatal(err)
+	}
+	stmt.Exec(key, ApplyKeyToMap(key, mapData), mapData.Id, mapData.Date)
 }

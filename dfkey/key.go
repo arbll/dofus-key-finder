@@ -197,3 +197,14 @@ func decryptionPercent(keyLength int, decryptedData [][]byte) float64 {
 	}
 	return float64(count) / float64(keyLength) * 100
 }
+
+func ApplyKeyToMap(key string, targetMap MapData) string {
+	rawData := decodeBase16(targetMap.data)
+	rawKey := unescape(decodeBase16(key))
+	decryptedData := make([]byte, len(rawData))
+	checksum := checksum(rawKey)
+	for i := 0; i < len(rawData); i++ {
+		decryptedData[i] = rawData[i] ^ rawKey[(int(checksum)*2+i)%len(rawKey)]
+	}
+	return string(decryptedData)
+}

@@ -34,9 +34,9 @@ func findPossibleDecryptedDataWorker(mapsData []MapData, jobs <-chan MapData, re
 
 func checkGuessKeyDataWorker(mapsData []MapData, jobs <-chan MapData, results chan<- int) {
 	for j := range jobs {
-		if j.key != "" {
+		if j.Key != "" {
 			key := GuessKey(j, mapsData)
-			if hex.EncodeToString(key) == j.key {
+			if hex.EncodeToString(key) == j.Key {
 				results <- 1
 			} else {
 				results <- 0
@@ -131,7 +131,7 @@ func TestBenchmarkGuessKey(t *testing.T) {
 	}
 	size := SampleSize
 	for i := 0; i < size; i++ {
-		if mapsData[i].key != "" {
+		if mapsData[i].Key != "" {
 			jobs <- mapsData[i]
 		} else {
 			size++
