@@ -2,6 +2,8 @@
 
 This tool allows you to find decryption keys for dofus1 maps by using only the map's encrypted data.
 
+You can find an explanation on how this attack works on my [blog](http://arthur.bell.al/blog/breaking-dofus-1.29.1-maps-encryption/).
+
 ## Installation
 
 To install this tool, you can download the [last release](https://github.com/Omen-/dofus-key-finder/releases).
