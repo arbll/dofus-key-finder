@@ -2,6 +2,7 @@ package maps
 
 import (
 	"encoding/csv"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -25,6 +26,15 @@ type Map struct {
 	CanUseInventory *bool
 	CanUseObject    *bool
 	CanChangeCharac *bool
+}
+
+// EncryptedData decodes the hexadecimal mapData used by encrypted maps.
+func (m Map) EncryptedData() ([]byte, error) {
+	data, err := hex.DecodeString(m.MapData)
+	if err != nil {
+		return nil, fmt.Errorf("map %d (%s): decode encrypted map data: %w", m.ID, m.Date, err)
+	}
+	return data, nil
 }
 
 var header = []string{
