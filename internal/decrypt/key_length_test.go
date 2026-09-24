@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.int.exe.xyz/arbll/dofus-key-finder/internal/maps"
+	"github.com/arbll/dofus-key-finder/internal/maps"
 )
 
 // Key lengths come from https://github.com/Daweyy/MapKeys-DR/tree/main/maps.

@@ -1,3 +1,3 @@
-module github.int.exe.xyz/arbll/dofus-key-finder
+module github.com/arbll/dofus-key-finder
 
 go 1.22
