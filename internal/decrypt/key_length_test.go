@@ -27,7 +27,7 @@ func TestKnownMapKeyLengths(t *testing.T) {
 		if !ok {
 			continue
 		}
-		got, err := KeyLength(m)
+		got, err := keyLength(m)
 		if err != nil {
 			t.Errorf("map %s: %v", name, err)
 		} else if got != want {
@@ -41,12 +41,12 @@ func TestKnownMapKeyLengths(t *testing.T) {
 }
 
 func TestKeyLengthRejectsShortAndInvalidData(t *testing.T) {
-	_, err := KeyLength(maps.Map{ID: 1, MapData: "not hex"})
+	_, err := keyLength(maps.Map{ID: 1, MapData: "not hex"})
 	if err == nil {
 		t.Fatal("expected invalid hexadecimal data error")
 	}
-	_, err = KeyLength(maps.Map{ID: 1, MapData: "00"})
-	if err == nil || errors.Is(err, ErrNoKeyLength) {
+	_, err = keyLength(maps.Map{ID: 1, MapData: "00"})
+	if err == nil || errors.Is(err, errNoKeyLength) {
 		t.Fatalf("short data error = %v", err)
 	}
 }

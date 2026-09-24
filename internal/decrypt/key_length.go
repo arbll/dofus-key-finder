@@ -9,11 +9,11 @@ import (
 
 // The key lengths observed in Dofus maps are 128 through 277 bytes.
 const (
-	MinKeyLength = 128
-	MaxKeyLength = 277
+	minKeyLength = 128
+	maxKeyLength = 277
 )
 
-var ErrNoKeyLength = errors.New("no plausible key length")
+var errNoKeyLength = errors.New("no plausible key length")
 
 // keyBytes is a bit set of possible ASCII key bytes (32 through 127).
 type keyBytes struct {
@@ -54,33 +54,33 @@ func buildPossibleKeys() [cellSize][256]keyBytes {
 	return table
 }
 
-// PossibleKeyLengths returns every length for which each repeated key byte can
+// possibleKeyLengths returns every length for which each repeated key byte can
 // decrypt all of its map positions to valid cell characters. The result is
 // ordered from shortest to longest; multiples of a true period may also pass.
-func PossibleKeyLengths(m maps.Map) ([]int, error) {
+func possibleKeyLengths(m maps.Map) ([]int, error) {
 	data, err := m.EncryptedData()
 	if err != nil {
 		return nil, err
 	}
-	if len(data) < 2*MinKeyLength {
-		return nil, fmt.Errorf("map %d (%s): need at least %d encrypted bytes to test a repeating key", m.ID, m.Date, 2*MinKeyLength)
+	if len(data) < 2*minKeyLength {
+		return nil, fmt.Errorf("map %d (%s): need at least %d encrypted bytes to test a repeating key", m.ID, m.Date, 2*minKeyLength)
 	}
 
 	var lengths []int
-	for length := MinKeyLength; length <= MaxKeyLength && 2*length <= len(data); length++ {
+	for length := minKeyLength; length <= maxKeyLength && 2*length <= len(data); length++ {
 		if keyLengthPossible(data, length) {
 			lengths = append(lengths, length)
 		}
 	}
 	if len(lengths) == 0 {
-		return nil, fmt.Errorf("map %d (%s): %w", m.ID, m.Date, ErrNoKeyLength)
+		return nil, fmt.Errorf("map %d (%s): %w", m.ID, m.Date, errNoKeyLength)
 	}
 	return lengths, nil
 }
 
-// KeyLength returns the shortest plausible repeating key length.
-func KeyLength(m maps.Map) (int, error) {
-	lengths, err := PossibleKeyLengths(m)
+// keyLength returns the shortest plausible repeating key length.
+func keyLength(m maps.Map) (int, error) {
+	lengths, err := possibleKeyLengths(m)
 	if err != nil {
 		return 0, err
 	}
@@ -89,12 +89,8 @@ func KeyLength(m maps.Map) (int, error) {
 
 func keyLengthPossible(data []byte, length int) bool {
 	for offset := 0; offset < length; offset++ {
-		possible := keyBytes{lo: ^uint64(0), hi: ^uint64(0)}
-		for i := offset; i < len(data); i += length {
-			possible = possible.intersect(possibleKeys[i%cellSize][data[i]])
-			if possible.empty() {
-				return false
-			}
+		if keyByteCandidates(data, length, offset).empty() {
+			return false
 		}
 	}
 	return true
