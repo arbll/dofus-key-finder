@@ -109,7 +109,7 @@ func TestKnownKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) < 2 || !slices.Equal(rows[0], []string{"id", "date", "key"}) {
+	if len(rows) < 2 || !slices.Equal(rows[0], []string{"id", "date", "key", "imported", "status"}) {
 		t.Fatal("missing keys or unexpected keys CSV header")
 	}
 	type mapVersion struct {
