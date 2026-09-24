@@ -2,10 +2,14 @@
 package decrypt
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/arbll/dofus-key-finder/internal/maps"
 )
+
+// ErrAmbiguous means the current constraints allow more than one key.
+var ErrAmbiguous = errors.New("ambiguous key")
 
 // Key returns the recovered, unescaped key bytes in their original order.
 // It uses the shortest plausible repeating key length and requires exactly one
@@ -21,7 +25,7 @@ func Key(m maps.Map) ([]byte, error) {
 	}
 	count := candidateCount(keyCandidates)
 	if !count.IsInt64() || count.Int64() != 1 {
-		return nil, fmt.Errorf("map %d (%s): %s candidate keys remain for key length %d; need exactly 1", m.ID, m.Date, count, length)
+		return nil, fmt.Errorf("map %d (%s): %s candidate keys remain for key length %d; need exactly 1: %w", m.ID, m.Date, count, length, ErrAmbiguous)
 	}
 
 	// Encryption starts at twice the key checksum (sum of bytes modulo 16).
