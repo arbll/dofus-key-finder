@@ -23,24 +23,37 @@ The bundled data contains **9,811 map IDs** across **21,917 versions**: **9,007 
 | Prediction only | 3,442 | 26.66% |
 | **Total** | **12,910** | **100%** |
 
-**73.34% have an imported or exact key.** Exact keys are unique under the solver's constraints; imported keys are unverified. Predictions may be wrong and are excluded from known-key coverage.
+- **Exact key:** the solver found only one possible key under its map-format rules.
+- **Imported key only:** a key from an external source that the solver has not confirmed.
+- **Prediction only:** a key guessed using statistics from known keys. It may be wrong.
 
 ## Usage
 
-Requires **Go 1.22+**. Run from the repository root:
+### Install
+
+Download a binary for your platform from [GitHub Releases](https://github.com/arbll/dofus-key-finder/releases), or install with **[Go 1.27.3+](https://go.dev/dl/)**:
 
 ```sh
-go run ./cmd/dofus-key-finder
+go install github.com/arbll/dofus-key-finder/cmd/dofus-key-finder@latest
 ```
 
-The solver applies map-format constraints, then predicts unresolved bytes using statistics learned from known keys. It updates `data/keys_exact.csv` and `data/keys_predicted.csv` and prints a coverage summary.
+Add Go's install directory (`go env GOBIN`, or `$(go env GOPATH)/bin` if unset) to your `PATH`.
+
+### Run
+
+Get the bundled data and run from the repository root:
 
 ```sh
-# Evaluate on held-out known keys without updating files
-go run ./cmd/dofus-key-finder -evaluate
-
-# Run tests
-go test ./...
+git clone https://github.com/arbll/dofus-key-finder.git
+cd dofus-key-finder
+dofus-key-finder
 ```
 
-Use `-verbose` for recovery details or `-h` for all options, including custom file paths.
+Reads the bundled maps and imported keys, updates `data/keys_exact.csv` and `data/keys_predicted.csv`, and prints a coverage summary.
+
+| Task | Command |
+| :--- | :--- |
+| Evaluate predictions without updating files | `dofus-key-finder -evaluate` |
+| Show recovery details | `dofus-key-finder -verbose` |
+| Show options and custom file paths | `dofus-key-finder -h` |
+| Run tests from the repository root | `go test ./...` |
