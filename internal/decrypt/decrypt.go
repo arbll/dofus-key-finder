@@ -32,7 +32,7 @@ type Stats struct {
 // ambiguous bytes; nil (or an empty model) requests deterministic recovery only.
 func Key(m maps.Map, model *Model) (Result, error) {
 	var result Result
-	candidates, err := Candidates(m)
+	candidates, err := candidates(m)
 	if err != nil {
 		return result, err
 	}
@@ -57,13 +57,13 @@ func Key(m maps.Map, model *Model) (Result, error) {
 		for i, c := range candidates {
 			aligned[i] = c[0]
 		}
-		result.Key = Unrotate(aligned)
+		result.Key = unrotate(aligned)
 		return result, nil
 	}
 	if model == nil || model.totals[0] == 0 {
 		return result, fmt.Errorf("map %d (%s): %s candidate keys remain for key length %d: %w", m.ID, m.Date, count, len(candidates), ErrAmbiguous)
 	}
-	result.Key, err = model.Guess(data, candidates)
+	result.Key, err = model.guess(data, candidates)
 	result.UsedPrediction = err == nil
 	return result, err
 }

@@ -103,7 +103,7 @@ func evaluate(model *Model, samples []sample, split int) metric {
 			}
 		}
 		// Aligned bytes isolate prediction quality from checksum-induced rotation.
-		aligned, want := Rotate(got), Rotate(s.key)
+		aligned, want := rotate(got), rotate(s.key)
 		for i, c := range s.candidates {
 			if len(c) > 1 {
 				r.byteN++
@@ -161,12 +161,12 @@ func Evaluate(loaded []maps.Map, imported, exact []keys.Entry, w io.Writer) erro
 		if err != nil {
 			return err
 		}
-		aligned := Rotate(k)
+		aligned := rotate(k)
 		p := make([]byte, len(data))
 		for i, b := range data {
 			p[i] = b ^ aligned[i%len(aligned)]
 		}
-		c, err := Candidates(m)
+		c, err := candidates(m)
 		ambiguous := err != nil || len(c) == 0
 		supported := err == nil && len(c) == len(aligned)
 		for i, choices := range c {
@@ -218,13 +218,13 @@ func Evaluate(loaded []maps.Map, imported, exact []keys.Entry, w io.Writer) erro
 	fmt.Fprintf(w, "# Predictive key evaluation\n\nKnown versions: %d (union of %d imported and %d exact entries).\n\n", len(samples), len(imported), len(exact))
 	fmt.Fprintf(w, "Fixed SHA-256 grouped split (target 60/20/20): train %d, validation %d, test %d; ambiguous %d/%d/%d. All versions of a map ID and identical decrypted plaintexts share a partition. No predictions or held-out plaintexts enter training. Solver constraints are pre-existing and fixed.\n\n", counts[0], counts[1], counts[2], amb[0], amb[1], amb[2])
 	fmt.Fprintln(w, "Position model: separate smoothed frequencies for the ten cell positions, summed as log likelihoods over repeated key-byte observations.")
-	var train [][]byte
+	var plaintexts [][]byte
 	for _, s := range samples {
 		if s.split == 0 {
-			train = append(train, s.plain)
+			plaintexts = append(plaintexts, s.plain)
 		}
 	}
-	model := Train(train)
+	model := train(plaintexts)
 	fmt.Fprintln(w, "\n| Split | Model | Whole key, all | Whole key, ambiguous only | Unresolved aligned bytes |\n| --- | --- | --- | --- | --- |")
 	row(w, "validation", "position", evaluate(model, samples, 1))
 	row(w, "test", "position", evaluate(model, samples, 2))

@@ -13,7 +13,7 @@ func TestKeyRecoveryDetails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	model := Train(nil)
+	model := train(nil)
 	var exact, ambiguous *maps.Map
 	for _, m := range loaded {
 		result, err := Key(m, nil)
@@ -38,7 +38,7 @@ func TestKeyRecoveryDetails(t *testing.T) {
 	if exact == nil || ambiguous == nil {
 		t.Fatal("missing fixtures")
 	}
-	for _, empty := range []*Model{nil, Train(nil)} {
+	for _, empty := range []*Model{nil, train(nil)} {
 		result, err := Key(*ambiguous, empty)
 		if !errors.Is(err, ErrAmbiguous) || result.Key != nil || result.UsedPrediction || result.Stats.AmbiguousBytes == 0 {
 			t.Fatalf("bad ambiguous result: %+v, %v", result, err)
@@ -51,11 +51,11 @@ func TestKeyRecoveryDetails(t *testing.T) {
 	if !guessed.UsedPrediction || guessed.Stats.KeyLength != len(guessed.Key) || guessed.Stats.DeterminedBytes+guessed.Stats.AmbiguousBytes != len(guessed.Key) {
 		t.Fatalf("bad predicted stats: %+v", guessed)
 	}
-	candidates, err := Candidates(*ambiguous)
+	candidates, err := candidates(*ambiguous)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i, k := range Rotate(guessed.Key) {
+	for i, k := range rotate(guessed.Key) {
 		if !slices.Contains(candidates[i], k) {
 			t.Fatal("prediction escaped solver constraints")
 		}

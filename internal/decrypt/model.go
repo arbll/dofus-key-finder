@@ -13,7 +13,7 @@ type Model struct {
 	totals [10]float64
 }
 
-func Train(plaintexts [][]byte) *Model {
+func train(plaintexts [][]byte) *Model {
 	m := &Model{}
 	for _, p := range plaintexts {
 		m.add(p)
@@ -27,9 +27,9 @@ func (m *Model) add(p []byte) {
 	}
 }
 
-// Guess maximizes independent byte log likelihood within candidate constraints.
+// guess maximizes independent byte log likelihood within candidate constraints.
 // Singleton positions stay fixed. Ties choose the first (smallest) candidate.
-func (m *Model) Guess(data []byte, candidates [][]byte) ([]byte, error) {
+func (m *Model) guess(data []byte, candidates [][]byte) ([]byte, error) {
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("no candidates")
 	}
@@ -57,17 +57,17 @@ func (m *Model) Guess(data []byte, candidates [][]byte) ([]byte, error) {
 			}
 		}
 	}
-	return Unrotate(aligned), nil
+	return unrotate(aligned), nil
 }
 
 // Observe adds plaintext from a known key only when the key satisfies the
 // deterministic solver. Callers must not use predictions as training labels.
 func (m *Model) Observe(source maps.Map, key []byte) error {
-	candidates, err := Candidates(source)
+	candidates, err := candidates(source)
 	if err != nil {
 		return err
 	}
-	aligned := Rotate(key)
+	aligned := rotate(key)
 	if len(aligned) != len(candidates) {
 		return fmt.Errorf("known key length does not match solver")
 	}

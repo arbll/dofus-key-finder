@@ -18,13 +18,13 @@ func TestGuessPreservesConstraintsAndRotation(t *testing.T) {
 		candidates[i] = []byte{k ^ 1, k}
 	}
 	candidates[0] = []byte{aligned[0]}
-	model := Train([][]byte{plain})
+	model := train([][]byte{plain})
 	{
-		got, err := model.Guess(data, candidates)
+		got, err := model.guess(data, candidates)
 		if err != nil {
 			t.Fatal(err)
 		}
-		rotated := Rotate(got)
+		rotated := rotate(got)
 		if rotated[0] != aligned[0] {
 			t.Fatal("changed singleton")
 		}
@@ -37,10 +37,10 @@ func TestGuessPreservesConstraintsAndRotation(t *testing.T) {
 			t.Fatalf("got %q want %q", rotated, aligned)
 		}
 	}
-	if _, err := model.Guess(data, nil); err == nil {
+	if _, err := model.guess(data, nil); err == nil {
 		t.Fatal("accepted empty candidates")
 	}
-	if _, err := model.Guess(data, [][]byte{{}}); err == nil {
+	if _, err := model.guess(data, [][]byte{{}}); err == nil {
 		t.Fatal("accepted empty choices")
 	}
 
@@ -48,10 +48,10 @@ func TestGuessPreservesConstraintsAndRotation(t *testing.T) {
 
 func TestPositionUsesCellPosition(t *testing.T) {
 	// Globally, 'a' dominates; at position zero, 'b' is certain.
-	m := Train([][]byte{bytes.Repeat([]byte("baaaaaaaaa"), 100)})
+	m := train([][]byte{bytes.Repeat([]byte("baaaaaaaaa"), 100)})
 	data := []byte{'b' ^ 40}
 	c := [][]byte{{40, 'b' ^ 40 ^ 'a'}}
-	position, _ := m.Guess(data, c)
+	position, _ := m.guess(data, c)
 	if position[0] != 40 {
 		t.Fatalf("position %v", position)
 	}

@@ -2,9 +2,9 @@ package decrypt
 
 import "github.com/arbll/dofus-key-finder/internal/maps"
 
-// Candidates returns the deterministic solver's allowed bytes, aligned to the
+// candidates returns the deterministic solver's allowed bytes, aligned to the
 // ciphertext, at its shortest plausible key length. It does not use known keys.
-func Candidates(m maps.Map) ([][]byte, error) {
+func candidates(m maps.Map) ([][]byte, error) {
 	length, err := keyLength(m)
 	if err != nil {
 		return nil, err
@@ -12,8 +12,8 @@ func Candidates(m maps.Map) ([][]byte, error) {
 	return filterKeys(m, length)
 }
 
-// Rotate aligns an original key with the ciphertext.
-func Rotate(key []byte) []byte {
+// rotate aligns an original key with the ciphertext.
+func rotate(key []byte) []byte {
 	shift := checksumShift(key)
 	out := make([]byte, len(key))
 	for i := range out {
@@ -22,8 +22,8 @@ func Rotate(key []byte) []byte {
 	return out
 }
 
-// Unrotate restores the original ordering of a ciphertext-aligned key.
-func Unrotate(key []byte) []byte {
+// unrotate restores the original ordering of a ciphertext-aligned key.
+func unrotate(key []byte) []byte {
 	shift := checksumShift(key)
 	out := make([]byte, len(key))
 	for i, b := range key {

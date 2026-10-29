@@ -206,7 +206,7 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 	}
 	// Train after deterministic recovery so new exact keys participate. Imported
 	// conflicts stay in their inventory; the exact key takes precedence for training.
-	model := decrypt.Train(nil)
+	model := &decrypt.Model{}
 	for _, m := range loaded {
 		entry, ok := known[keys.Version{ID: m.ID, Date: m.Date}]
 		if !ok {
