@@ -14,7 +14,7 @@ Recover decryption keys for Dofus 1.29 maps from encrypted map data.
 
 ## Progress
 
-Download the latest keys as [`keys_merged.yaml` from the latest release](https://github.com/arbll/dofus-key-finder/releases/latest/download/keys_merged.yaml).
+<sub><em><a href="https://github.com/arbll/dofus-key-finder/releases/latest/download/keys_merged.yaml">Download the latest keys</a></em></sub>
 
 The bundled data contains **9,811 map IDs** across **21,917 versions**: **9,007 plaintext** and **12,910 encrypted**.
 
@@ -30,8 +30,6 @@ The bundled data contains **9,811 map IDs** across **21,917 versions**: **9,007 
 - **Prediction only:** a key guessed using statistics from known keys. It may be wrong.
 
 ## Usage
-
-> If you only need the keys, [download them from the latest release](https://github.com/arbll/dofus-key-finder/releases/latest/download/keys_merged.yaml).
 
 ### Install
 
