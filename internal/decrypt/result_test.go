@@ -9,7 +9,7 @@ import (
 )
 
 func TestKeyRecoveryDetails(t *testing.T) {
-	loaded, err := maps.Load("../../data/maps.csv")
+	loaded, err := maps.Load("../../data/maps.csv.gz")
 	if err != nil {
 		t.Fatal(err)
 	}

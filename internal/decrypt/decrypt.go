@@ -69,7 +69,7 @@ func Key(m maps.Map, model *Model) (Result, error) {
 }
 
 // Each map cell has ten bytes. These are the observed plaintext characters at
-// each byte position. The sets combine plaintext maps in data/maps.csv with the
+// each byte position. The sets combine plaintext maps in data/maps.csv.gz with the
 // published position statistics at https://arthur.bell.al/etc/cell_stats.json.
 const cellSize = 10
 

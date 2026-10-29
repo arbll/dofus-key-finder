@@ -20,7 +20,7 @@ import (
 // Exercise the actual solver using real map data, independent of the key inventories.
 func recoveryFixtures(t *testing.T) (maps.Map, []byte, maps.Map) {
 	t.Helper()
-	loaded, err := maps.Load("../../data/maps.csv")
+	loaded, err := maps.Load("../../data/maps.csv.gz")
 	if err != nil {
 		t.Fatal(err)
 	}

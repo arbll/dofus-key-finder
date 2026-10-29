@@ -10,7 +10,7 @@ The command first recovers keys uniquely determined by the cell constraints. It 
 
 | File | Contents |
 | --- | --- |
-| `data/maps.csv` | Source map data (Git LFS). |
+| `data/maps.csv.gz` | Gzip-compressed source map data (stored directly in Git). |
 | `data/keys_imported.csv` | Externally sourced keys, preserved unchanged. |
 | `data/keys_exact.csv` | Unique deterministic recoveries, including imported matches. |
 | `data/keys_predicted.csv` | Statistical predictions; may be incorrect. |
@@ -20,7 +20,7 @@ Key inventories use `id,date,key`. ID and date together identify a map version; 
 
 Deterministic recoveries promote previous predictions to the exact inventory. Differing predictions and conflicts with imported keys are reported; imported values remain unchanged. Predictions for unresolved unknown maps are refreshed when training data is available. Existing predictions for maps absent from the input or lacking recovery/training data are preserved. Coverage counts the union of imported and exact versions, excluding predictions. “Exact” means unique under the solver's current constraints.
 
-Override paths with `--maps-file`, `--imported-keys-file`, `--exact-keys-file`, and `--predicted-keys-file`.
+Override paths with `--maps-file`, `--imported-keys-file`, `--exact-keys-file`, and `--predicted-keys-file`. Map input supports plain `.csv` and gzip-compressed `.csv.gz` files.
 
 Evaluate the model on grouped held-out imported/exact keys without updating inventories:
 
@@ -32,4 +32,4 @@ Evaluation keeps versions of a map ID and identical plaintexts together in a fix
 
 The `decrypt.Key(map, model)` API returns a `Result` with `Key`, `UsedPrediction`, and `Stats`: key length, encrypted byte count, determined/ambiguous key-byte counts, and the exact candidate count as a decimal string. Passing a nil model requests deterministic recovery only; `ErrAmbiguous` retains candidate statistics. These statistics are not calibrated confidence values.
 
-Run checks with `go test ./...` after fetching the map data with Git LFS.
+Run checks with `go test ./...`. The map data is included; Git LFS is not required.

@@ -17,7 +17,7 @@ func TestKnownMapKeyLengths(t *testing.T) {
 		"478_0706131721": 256,
 		"845_0706131721": 128,
 	}
-	loaded, err := maps.Load("../../data/maps.csv")
+	loaded, err := maps.Load("../../data/maps.csv.gz")
 	if err != nil {
 		t.Fatal(err)
 	}

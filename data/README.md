@@ -1,7 +1,7 @@
 | File | Purpose |
 | --- | --- |
 | `maps_metadata.csv` | Incomplete world coordinates and area hierarchy, merged by map ID. |
-| `maps.csv` | Source map data (Git LFS). |
+| `maps.csv.gz` | Gzip-compressed source map data (stored directly in Git). |
 | `keys_imported.csv` | Keys from external sources. |
 | `keys_exact.csv` | All keys recovered by the deterministic solver, including imported matches. |
 | `keys_predicted.csv` | Model predictions; may be incorrect. |

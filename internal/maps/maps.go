@@ -1,11 +1,13 @@
 package maps
 
 import (
+	"compress/gzip"
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -43,7 +45,8 @@ var header = []string{
 	"canUseObject", "canChangeCharac",
 }
 
-// Load reads maps from a CSV file, preserving every row in file order.
+// Load reads maps from a CSV file (optionally gzip-compressed with a .gz suffix),
+// preserving every row in file order.
 func Load(path string) ([]Map, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -51,7 +54,17 @@ func Load(path string) ([]Map, error) {
 	}
 	defer file.Close()
 
-	reader := csv.NewReader(file)
+	var input io.Reader = file
+	if filepath.Ext(path) == ".gz" {
+		compressed, err := gzip.NewReader(file)
+		if err != nil {
+			return nil, fmt.Errorf("open gzip maps CSV %q: %w", path, err)
+		}
+		defer compressed.Close()
+		input = compressed
+	}
+
+	reader := csv.NewReader(input)
 	reader.ReuseRecord = true
 	columns, err := reader.Read()
 	if err != nil {

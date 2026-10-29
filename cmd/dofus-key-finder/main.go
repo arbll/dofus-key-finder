@@ -27,7 +27,7 @@ type inventoryPaths struct {
 }
 
 func main() {
-	mapsPath := flag.String("maps-file", "data/maps.csv", "path to the maps CSV file")
+	mapsPath := flag.String("maps-file", "data/maps.csv.gz", "path to the maps CSV file (.csv or .csv.gz)")
 	imported := flag.String("imported-keys-file", "data/keys_imported.csv", "imported keys to read")
 	exact := flag.String("exact-keys-file", "data/keys_exact.csv", "exact keys to read and update")
 	predicted := flag.String("predicted-keys-file", "data/keys_predicted.csv", "predicted keys to read, update, and promote when recovered exactly")

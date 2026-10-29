@@ -1,8 +1,11 @@
 package maps
 
 import (
+	"bytes"
+	"compress/gzip"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -55,5 +58,54 @@ func TestLoadReportsInvalidField(t *testing.T) {
 	_, err := Load(path)
 	if err == nil || !strings.Contains(err.Error(), "line 2, width") {
 		t.Fatalf("Load() error = %v, want line and field", err)
+	}
+}
+
+func TestLoadGzip(t *testing.T) {
+	content := testHeader + "4,0609111108,15,17,0,0,118,false,0,first,,,,\n"
+	want, err := Load(writeCSV(t, content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buffer bytes.Buffer
+	writer := gzip.NewWriter(&buffer)
+	if _, err := writer.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	compressed := buffer.Bytes()
+	corrupted := bytes.Clone(compressed)
+	corrupted[len(corrupted)-8] ^= 0xff
+	for _, tc := range []struct {
+		name    string
+		data    []byte
+		wantErr string
+	}{
+		{"valid", compressed, ""},
+		{"invalid header", []byte(content), "open gzip maps CSV"},
+		{"corrupt checksum", corrupted, "invalid checksum"},
+		{"truncated", compressed[:len(compressed)-4], "unexpected EOF"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "maps.csv.gz")
+			if err := os.WriteFile(path, tc.data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			got, err := Load(path)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("Load() error = %v, want %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("gzip maps = %+v, want %+v", got, want)
+			}
+		})
 	}
 }
