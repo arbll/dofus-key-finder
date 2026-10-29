@@ -83,17 +83,16 @@ func number(n int) string {
 	return text
 }
 
-func (s results) print(w io.Writer, entries inventory) {
+func (s results) print(w io.Writer, entries inventory, verbose bool) {
 	r := report{w: w}
 	if file, ok := w.(*os.File); ok {
 		info, err := file.Stat()
 		r.styled = err == nil && info.Mode()&os.ModeCharDevice != 0 && os.Getenv("TERM") != "dumb" && os.Getenv("NO_COLOR") == ""
 	}
-	fmt.Fprintln(w, r.bold("Dofus key finder"))
-	fmt.Fprintf(w, "%s map IDs · %s versions\n", number(s.uniqueIDs), number(s.total))
+	fmt.Fprintln(w, r.bold(fmt.Sprintf("Dofus key finder · %s IDs · %s versions", number(s.uniqueIDs), number(s.total))))
 	fmt.Fprintf(w, "%s plaintext · %s encrypted · %s invalid\n", number(s.plaintext), number(s.encrypted), number(s.invalid))
 
-	r.section("Encrypted maps")
+	fmt.Fprintln(w)
 	var coverage [][]string
 	for _, row := range []struct {
 		label string
@@ -106,18 +105,37 @@ func (s results) print(w io.Writer, entries inventory) {
 	} {
 		coverage = append(coverage, []string{row.label, number(row.count), fmt.Sprintf("%.2f%%", percent(row.count, s.encrypted))})
 	}
-	r.table([]string{"Status", "Versions", "Share"}, coverage)
-	fmt.Fprintf(w, "Known key coverage   %s\n", r.bold(fmt.Sprintf("%s/%s (%.2f%%)", number(s.afterCoverage), number(s.encrypted), percent(s.afterCoverage, s.encrypted))))
-	fmt.Fprintf(w, "With plaintext maps  %s/%s (%.2f%%)\n", number(s.plaintext+s.afterCoverage), number(s.total), percent(s.plaintext+s.afterCoverage, s.total))
-
-	r.section("Changes this run")
-	fmt.Fprintf(w, "Known key coverage   %.2f%% → %.2f%% (+%s versions)\n", percent(s.beforeCoverage, s.encrypted), percent(s.afterCoverage, s.encrypted), number(s.afterCoverage-s.beforeCoverage))
-	fmt.Fprintf(w, "Exact entries        +%s added · %s promoted (%s corrected)\n", number(s.added), number(s.promoted), number(s.corrected))
-	r.table([]string{"Predictions", "New", "Changed", "Unchanged", "Preserved"}, [][]string{
-		{"Versions", number(s.newPredictions), number(s.changedPredictions), number(s.unchangedPredictions), number(s.preserved)},
-	})
+	r.table([]string{"Encrypted maps", "Versions", "Share"}, coverage)
+	fmt.Fprintf(w, "Known keys   %s (+%s versions)\n", r.bold(fmt.Sprintf("%s/%s (%.2f%%)", number(s.afterCoverage), number(s.encrypted), percent(s.afterCoverage, s.encrypted))), number(s.afterCoverage-s.beforeCoverage))
+	fmt.Fprintf(w, "Exact        +%s added · %s promoted · %s corrected\n", number(s.added), number(s.promoted), number(s.corrected))
+	fmt.Fprintf(w, "Predictions  %s new · %s changed · %s unchanged · %s preserved\n", number(s.newPredictions), number(s.changedPredictions), number(s.unchangedPredictions), number(s.preserved))
+	var issues []string
+	for _, issue := range []struct {
+		count int
+		label string
+	}{
+		{s.invalid, "invalid maps"},
+		{s.failed, "solver failures"},
+		{s.predictionErrors, "prediction errors"},
+		{s.conflicts, "key conflicts"},
+		{s.skippedTraining, "training skips"},
+		{s.noTraining, "predictions skipped without training"},
+	} {
+		if issue.count > 0 {
+			issues = append(issues, number(issue.count)+" "+issue.label)
+		}
+	}
+	if len(issues) == 0 {
+		issues = append(issues, "none")
+	}
+	fmt.Fprintln(w, "Issues       "+strings.Join(issues, " · "))
+	if !verbose {
+		return
+	}
 
 	r.section("Recovery")
+	fmt.Fprintf(w, "With plaintext maps  %s/%s (%.2f%%)\n", number(s.plaintext+s.afterCoverage), number(s.total), percent(s.plaintext+s.afterCoverage, s.total))
+	fmt.Fprintf(w, "Known key coverage   %.2f%% → %.2f%%\n", percent(s.beforeCoverage, s.encrypted), percent(s.afterCoverage, s.encrypted))
 	fmt.Fprintf(w, "Deterministic        %s exact · %s ambiguous · %s failed\n", number(s.recovered), number(s.ambiguous), number(s.failed))
 	fmt.Fprintf(w, "Existing keys        %s confirmed · %s conflicts\n", number(s.confirmed), number(s.conflicts))
 	fmt.Fprintf(w, "Training maps        %s used · %s skipped\n", number(s.trained), number(s.skippedTraining))

@@ -22,6 +22,8 @@ Deterministic recoveries promote previous predictions to the exact inventory. Di
 
 Override paths with `--maps-file`, `--imported-keys-file`, `--exact-keys-file`, and `--predicted-keys-file`. Map input supports plain `.csv` and gzip-compressed `.csv.gz` files.
 
+Use `--verbose` for solver, training, ambiguity, and inventory details.
+
 Evaluate the model on grouped held-out imported/exact keys without updating inventories:
 
 ```sh

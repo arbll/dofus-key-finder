@@ -96,7 +96,7 @@ func TestProcessPreservesProvenanceAndConflicts(t *testing.T) {
 		t.Fatal("missing conflict diagnostic")
 	}
 	var summary bytes.Buffer
-	stats.print(&summary, entries)
+	stats.print(&summary, entries, true)
 	for _, want := range []string{"5/6 (83.33%)", "+3 added", "4 imported / 4 exact / 0 predicted", "(+1 versions)"} {
 		if !strings.Contains(summary.String(), want) {
 			t.Errorf("summary missing %q:\n%s", want, &summary)
@@ -126,7 +126,7 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	importedBefore, _ := os.ReadFile(paths.imported)
-	if err := run(mapsPath, paths, &summary, &diagnostics, false); err != nil {
+	if err := run(mapsPath, paths, &summary, &diagnostics, false, false); err != nil {
 		t.Fatal(err)
 	}
 	first, err := os.ReadFile(paths.exact)
@@ -137,7 +137,7 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 		t.Fatalf("missing new recovery: %s\n%s", &summary, first)
 	}
 	summary.Reset()
-	if err := run(mapsPath, paths, &summary, &diagnostics, false); err != nil {
+	if err := run(mapsPath, paths, &summary, &diagnostics, false, true); err != nil {
 		t.Fatal(err)
 	}
 	second, _ := os.ReadFile(paths.exact)
@@ -149,14 +149,14 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 		t.Fatalf("second run changed the inventory: %s", &summary)
 	}
 	paths.exact = mapsPath
-	if err := run(mapsPath, paths, &summary, &diagnostics, false); err == nil {
+	if err := run(mapsPath, paths, &summary, &diagnostics, false, false); err == nil {
 		t.Fatal("accepted maps file as output")
 	}
 }
 
 func TestEmptySummary(t *testing.T) {
 	var summary bytes.Buffer
-	results{}.print(&summary, inventory{})
+	results{}.print(&summary, inventory{}, false)
 	if strings.Contains(summary.String(), "NaN") || strings.Contains(summary.String(), "Inf") {
 		t.Fatal("undefined percentages in empty summary")
 	}
@@ -207,7 +207,7 @@ func TestRunRejectsPredictionsOverlappingTrustedInventories(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, _ := os.ReadFile(paths.exact)
-	err := run(mapsPath, paths, &bytes.Buffer{}, &bytes.Buffer{}, false)
+	err := run(mapsPath, paths, &bytes.Buffer{}, &bytes.Buffer{}, false, false)
 	if err == nil || !strings.Contains(err.Error(), "duplicate map") {
 		t.Fatalf("expected duplicate error, got %v", err)
 	}
@@ -299,7 +299,7 @@ func TestRunRejectsAliasedInventory(t *testing.T) {
 	if err := os.Link(source, alias); err != nil {
 		t.Fatal(err)
 	}
-	err := run(source, inventoryPaths{filepath.Join(dir, "keys_imported.csv"), alias, filepath.Join(dir, "keys_predicted.csv")}, &bytes.Buffer{}, &bytes.Buffer{}, false)
+	err := run(source, inventoryPaths{filepath.Join(dir, "keys_imported.csv"), alias, filepath.Join(dir, "keys_predicted.csv")}, &bytes.Buffer{}, &bytes.Buffer{}, false, false)
 	if err == nil || !strings.Contains(err.Error(), "different files") {
 		t.Fatalf("expected alias rejection, got %v", err)
 	}

@@ -32,14 +32,15 @@ func main() {
 	exact := flag.String("exact-keys-file", "data/keys_exact.csv", "exact keys to read and update")
 	predicted := flag.String("predicted-keys-file", "data/keys_predicted.csv", "predicted keys to read, update, and promote when recovered exactly")
 	evaluate := flag.Bool("evaluate", false, "evaluate the predictive model on held-out known keys without writing inventories")
+	verbose := flag.Bool("verbose", false, "show solver, training, ambiguity, and inventory details")
 	flag.Parse()
 	log.SetFlags(0)
-	if err := run(*mapsPath, inventoryPaths{*imported, *exact, *predicted}, os.Stdout, os.Stderr, *evaluate); err != nil {
+	if err := run(*mapsPath, inventoryPaths{*imported, *exact, *predicted}, os.Stdout, os.Stderr, *evaluate, *verbose); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer, evaluateOnly bool) error {
+func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer, evaluateOnly, verbose bool) error {
 	seenPaths := make(map[string]bool)
 	var files []os.FileInfo
 	for _, path := range []string{mapsPath, paths.imported, paths.exact, paths.predicted} {
@@ -102,7 +103,7 @@ func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer, e
 	if err := keys.Save(paths.predicted, entries.predicted); err != nil {
 		return fmt.Errorf("save predicted keys: %w", err)
 	}
-	stats.print(output, entries)
+	stats.print(output, entries, verbose)
 	return nil
 }
 
