@@ -89,8 +89,8 @@ func TestCandidateCount(t *testing.T) {
 
 func TestKeyInvalidInput(t *testing.T) {
 	for _, data := range []string{"not hex", "00", strings.Repeat("ff", 1000)} {
-		key, err := Key(maps.Map{MapData: data})
-		if err == nil || key != nil {
+		key, err := Key(maps.Map{MapData: data}, nil)
+		if err == nil || key.Key != nil {
 			t.Errorf("Key(%q): key = %v, error = %v", data[:min(len(data), 10)], key, err)
 		}
 	}
@@ -102,7 +102,7 @@ func TestKeyInvalidInput(t *testing.T) {
 func TestKnownKeys(t *testing.T) {
 	var rows [][]string
 	// Predictions are deliberately excluded: they are not known-good fixtures.
-	for _, path := range []string{"../../data/keys-imported.csv", "../../data/keys-exact.csv"} {
+	for _, path := range []string{"../../data/keys_imported.csv", "../../data/keys_exact.csv"} {
 		file, err := os.Open(path)
 		if err != nil {
 			t.Fatal(err)
@@ -184,14 +184,14 @@ func TestKnownKeys(t *testing.T) {
 				break
 			}
 		}
-		got, err := Key(m)
+		got, err := Key(m, nil)
 		if count.Cmp(big.NewInt(1)) == 0 {
-			if err != nil || !bytes.Equal(got, want) {
+			if err != nil || !bytes.Equal(got.Key, want) {
 				t.Errorf("map %v: recovered key differs from known key; error = %v", version, err)
 			} else {
 				recovered++
 			}
-		} else if got != nil || err == nil || !strings.Contains(err.Error(), fmt.Sprintf("%s candidate keys", count)) {
+		} else if got.Key != nil || err == nil || !strings.Contains(err.Error(), fmt.Sprintf("%s candidate keys", count)) {
 			t.Errorf("map %v: expected error with %s candidates; key = %v, error = %v", version, count, got, err)
 		}
 	}

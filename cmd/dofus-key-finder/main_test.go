@@ -30,9 +30,9 @@ func recoveryFixtures(t *testing.T) (maps.Map, []byte, maps.Map) {
 		if _, err := m.EncryptedData(); err != nil {
 			continue
 		}
-		key, err := decrypt.Key(m)
+		key, err := decrypt.Key(m, nil)
 		if err == nil && recovered == nil {
-			solved, recovered = m, key
+			solved, recovered = m, key.Key
 		} else if errors.Is(err, decrypt.ErrAmbiguous) {
 			ambiguous = m
 		}
@@ -122,7 +122,7 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	importedBefore, _ := os.ReadFile(paths.imported)
-	if err := run(mapsPath, paths, &summary, &diagnostics); err != nil {
+	if err := run(mapsPath, paths, &summary, &diagnostics, false); err != nil {
 		t.Fatal(err)
 	}
 	first, err := os.ReadFile(paths.exact)
@@ -133,7 +133,7 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 		t.Fatalf("missing new recovery: %s\n%s", &summary, first)
 	}
 	summary.Reset()
-	if err := run(mapsPath, paths, &summary, &diagnostics); err != nil {
+	if err := run(mapsPath, paths, &summary, &diagnostics, false); err != nil {
 		t.Fatal(err)
 	}
 	second, _ := os.ReadFile(paths.exact)
@@ -145,7 +145,7 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 		t.Fatalf("second run changed the inventory: %s", &summary)
 	}
 	paths.exact = mapsPath
-	if err := run(mapsPath, paths, &summary, &diagnostics); err == nil {
+	if err := run(mapsPath, paths, &summary, &diagnostics, false); err == nil {
 		t.Fatal("accepted maps file as output")
 	}
 }
@@ -172,7 +172,7 @@ func TestPredictionsPromotedByExactRecovery(t *testing.T) {
 	if stats.promoted != 2 || stats.corrected != 1 || stats.added != 0 || stats.beforeCoverage != 0 || stats.afterCoverage != 2 {
 		t.Fatalf("unexpected results: %+v", stats)
 	}
-	if len(entries.exact) != 2 || !reflect.DeepEqual(entries.predicted, previous.predicted[2:]) || len(previous.predicted) != 3 {
+	if len(entries.exact) != 2 || entries.predicted[0].Version != previous.predicted[2].Version || len(previous.predicted) != 3 {
 		t.Fatalf("unexpected inventories: %+v", entries)
 	}
 	for _, entry := range entries.exact {
@@ -200,12 +200,54 @@ func TestRunRejectsPredictionsOverlappingTrustedInventories(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, _ := os.ReadFile(paths.exact)
-	err := run(mapsPath, paths, &bytes.Buffer{}, &bytes.Buffer{})
+	err := run(mapsPath, paths, &bytes.Buffer{}, &bytes.Buffer{}, false)
 	if err == nil || !strings.Contains(err.Error(), "duplicate map") {
 		t.Fatalf("expected duplicate error, got %v", err)
 	}
 	after, _ := os.ReadFile(paths.exact)
 	if !bytes.Equal(before, after) {
 		t.Fatal("invalid input modified inventory")
+	}
+}
+
+func TestUnifiedPredictionAndIdempotence(t *testing.T) {
+	solved, _, ambiguous := recoveryFixtures(t)
+	var diagnostics bytes.Buffer
+	loaded := []maps.Map{solved, ambiguous}
+	entries, stats := process(loaded, inventory{}, &diagnostics)
+	if len(entries.exact) != 1 || len(entries.predicted) != 1 || stats.predicted != 1 || stats.trained != 1 || stats.afterCoverage != 1 {
+		t.Fatalf("unexpected result: %+v, %s", stats, &diagnostics)
+	}
+	if entries.predicted[0].Version != (keys.Version{ID: ambiguous.ID, Date: ambiguous.Date}) {
+		t.Fatal("prediction misrouted")
+	}
+	again, stats := process(loaded, entries, &diagnostics)
+	if !reflect.DeepEqual(entries, again) || stats.promoted != 0 {
+		t.Fatal("second run changed inventories")
+	}
+	// Predictions cannot train themselves when no known or exact key is available.
+	onlyPrediction, stats := process([]maps.Map{ambiguous}, inventory{predicted: entries.predicted}, &diagnostics)
+	if stats.trained != 0 || stats.predicted != 0 || !reflect.DeepEqual(onlyPrediction.predicted, entries.predicted) {
+		t.Fatal("prediction entered training")
+	}
+}
+
+func TestRunRejectsAliasedInventory(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "maps.csv")
+	alias := filepath.Join(dir, "keys_exact.csv")
+	if err := os.WriteFile(source, []byte("preserve me"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(source, alias); err != nil {
+		t.Fatal(err)
+	}
+	err := run(source, inventoryPaths{filepath.Join(dir, "keys_imported.csv"), alias, filepath.Join(dir, "keys_predicted.csv")}, &bytes.Buffer{}, &bytes.Buffer{}, false)
+	if err == nil || !strings.Contains(err.Error(), "different files") {
+		t.Fatalf("expected alias rejection, got %v", err)
+	}
+	got, err := os.ReadFile(source)
+	if err != nil || string(got) != "preserve me" {
+		t.Fatal("input modified")
 	}
 }

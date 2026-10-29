@@ -28,18 +28,20 @@ type inventoryPaths struct {
 
 func main() {
 	mapsPath := flag.String("maps-file", "data/maps.csv", "path to the maps CSV file")
-	imported := flag.String("imported-keys-file", "data/keys-imported.csv", "imported keys to read")
-	exact := flag.String("exact-keys-file", "data/keys-exact.csv", "exact keys to read and update")
-	predicted := flag.String("predicted-keys-file", "data/keys-predicted.csv", "predicted keys to read and promote when recovered exactly")
+	imported := flag.String("imported-keys-file", "data/keys_imported.csv", "imported keys to read")
+	exact := flag.String("exact-keys-file", "data/keys_exact.csv", "exact keys to read and update")
+	predicted := flag.String("predicted-keys-file", "data/keys_predicted.csv", "predicted keys to read, update, and promote when recovered exactly")
+	evaluate := flag.Bool("evaluate", false, "evaluate the predictive model on held-out known keys without writing inventories")
 	flag.Parse()
 	log.SetFlags(0)
-	if err := run(*mapsPath, inventoryPaths{*imported, *exact, *predicted}, os.Stdout, os.Stderr); err != nil {
+	if err := run(*mapsPath, inventoryPaths{*imported, *exact, *predicted}, os.Stdout, os.Stderr, *evaluate); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer) error {
+func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer, evaluateOnly bool) error {
 	seenPaths := make(map[string]bool)
+	var files []os.FileInfo
 	for _, path := range []string{mapsPath, paths.imported, paths.exact, paths.predicted} {
 		abs, err := filepath.Abs(path)
 		if err != nil {
@@ -49,6 +51,14 @@ func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer) e
 			return fmt.Errorf("maps and key inventories must be different files: %s", path)
 		}
 		seenPaths[abs] = true
+		if info, err := os.Stat(path); err == nil {
+			for _, other := range files {
+				if os.SameFile(info, other) {
+					return fmt.Errorf("maps and key inventories must be different files: %s", path)
+				}
+			}
+			files = append(files, info)
+		}
 	}
 	loaded, err := maps.Load(mapsPath)
 	if err != nil {
@@ -82,6 +92,9 @@ func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer) e
 		}
 		seen[version] = true
 	}
+	if evaluateOnly {
+		return decrypt.Evaluate(loaded, previous.imported, previous.exact, output)
+	}
 	entries, stats := process(loaded, previous, diagnostics)
 	if err := keys.Save(paths.exact, entries.exact); err != nil {
 		return fmt.Errorf("save exact keys: %w", err)
@@ -99,6 +112,8 @@ type results struct {
 	beforeCoverage, afterCoverage        int
 	added, confirmed, conflicts          int
 	promoted, corrected                  int
+	predicted, trained, skippedTraining  int
+	determinedBytes, ambiguousBytes      int
 }
 
 func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inventory, results) {
@@ -119,6 +134,7 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 	}
 	promoted := make(map[keys.Version]bool)
 	stats := results{total: len(loaded)}
+	var pending []maps.Map
 	for _, m := range loaded {
 		// Encrypted mapData is hexadecimal; plaintext is ten-character cells.
 		if _, err := hex.DecodeString(m.MapData); err != nil {
@@ -142,9 +158,12 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 			stats.beforeCoverage++
 			stats.afterCoverage++
 		}
-		key, err := decrypt.Key(m)
+		recovery, err := decrypt.Key(m, nil)
+		stats.determinedBytes += recovery.Stats.DeterminedBytes
+		stats.ambiguousBytes += recovery.Stats.AmbiguousBytes
 		if errors.Is(err, decrypt.ErrAmbiguous) {
 			stats.ambiguous++
+			pending = append(pending, m)
 			continue
 		}
 		if err != nil {
@@ -152,6 +171,7 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 			fmt.Fprintln(diagnostics, err)
 			continue
 		}
+		key := recovery.Key
 		stats.recovered++
 		if exists {
 			old, _ := keys.Decode(existing.Key) // Validated by keys.Load.
@@ -184,11 +204,57 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 			stats.afterCoverage++
 		}
 	}
+	// Train after deterministic recovery so new exact keys participate. Imported
+	// conflicts stay in their inventory; the exact key takes precedence for training.
+	model := decrypt.Train(nil)
+	for _, m := range loaded {
+		entry, ok := known[keys.Version{ID: m.ID, Date: m.Date}]
+		if !ok {
+			continue
+		}
+		key, err := keys.Decode(entry.Key)
+		if err == nil {
+			err = model.Observe(m, key)
+		}
+		if err != nil {
+			stats.skippedTraining++
+			fmt.Fprintf(diagnostics, "Map %d (%s): skipped model training: %v\n", m.ID, m.Date, err)
+			continue
+		}
+		stats.trained++
+	}
+	var addedPredictions []keys.Entry
+	for _, m := range pending {
+		version := keys.Version{ID: m.ID, Date: m.Date}
+		if _, ok := known[version]; ok {
+			continue
+		}
+		recovery, err := decrypt.Key(m, model)
+		if errors.Is(err, decrypt.ErrAmbiguous) {
+			continue
+		}
+		if err != nil {
+			fmt.Fprintln(diagnostics, err)
+			continue
+		}
+		if !recovery.UsedPrediction {
+			stats.failed++
+			fmt.Fprintf(diagnostics, "Map %d (%s): inconsistent recovery method; prediction not saved\n", m.ID, m.Date)
+			continue
+		}
+		entry := keys.Entry{Version: version, Key: keys.Encode(recovery.Key)}
+		if _, exists := predicted[version]; !exists {
+			addedPredictions = append(addedPredictions, entry)
+		}
+		predicted[version] = entry
+		stats.predicted++
+	}
 	for _, entry := range previous.predicted {
 		if !promoted[entry.Version] {
-			entries.predicted = append(entries.predicted, entry)
+			entries.predicted = append(entries.predicted, predicted[entry.Version])
 		}
 	}
+	entries.predicted = append(entries.predicted, addedPredictions...)
 	return entries, stats
 }
 
@@ -210,6 +276,8 @@ func (s results) print(w io.Writer, entries inventory) {
 	fmt.Fprintf(w, "Encrypted maps with imported or exact keys: %d/%d (%.2f%%)\n", s.afterCoverage, s.encrypted, percent(s.afterCoverage, s.encrypted))
 	fmt.Fprintf(w, "Plaintext or imported/exact key available: %d/%d (%.2f%%)\n", s.plaintext+s.afterCoverage, s.total, percent(s.plaintext+s.afterCoverage, s.total))
 	fmt.Fprintf(w, "Exact recovery this run: %d/%d (%.2f%%); ambiguous: %d; failed: %d\n", s.recovered, s.encrypted, percent(s.recovered, s.encrypted), s.ambiguous, s.failed)
+	fmt.Fprintf(w, "Model: %d training maps (%d skipped); %d predictions generated\n", s.trained, s.skippedTraining, s.predicted)
+	fmt.Fprintf(w, "Deterministic key bytes: %d fixed, %d ambiguous\n", s.determinedBytes, s.ambiguousBytes)
 	fmt.Fprintf(w, "Existing keys confirmed: %d; conflicts preserved: %d\n", s.confirmed, s.conflicts)
 	fmt.Fprintf(w, "Key inventories: %d imported, %d exact, %d predicted\n", len(entries.imported), len(entries.exact), len(entries.predicted))
 	fmt.Fprintf(w, "Exact keys: +%d added; predictions promoted: %d (%d corrected)\n", s.added, s.promoted, s.corrected)
