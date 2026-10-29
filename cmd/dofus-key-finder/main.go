@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/arbll/dofus-key-finder/internal/decrypt"
@@ -320,74 +319,4 @@ func isPlaintext(data string) bool {
 	return len(data) > 0 && len(data)%10 == 0 && strings.IndexFunc(data, func(r rune) bool {
 		return !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_", r)
 	}) == -1
-}
-
-func percent(n, total int) float64 {
-	if total == 0 {
-		return 0
-	}
-	return 100 * float64(n) / float64(total)
-}
-
-func number(n int) string {
-	text := strconv.Itoa(n)
-	for i := len(text) - 3; i > 0; i -= 3 {
-		text = text[:i] + "," + text[i:]
-	}
-	return text
-}
-
-func (s results) print(w io.Writer, entries inventory) {
-	fmt.Fprintln(w, "Dofus key finder")
-	fmt.Fprintf(w, "  %s map IDs / %s versions\n", number(s.uniqueIDs), number(s.total))
-	fmt.Fprintf(w, "  %s plaintext / %s encrypted / %s invalid\n", number(s.plaintext), number(s.encrypted), number(s.invalid))
-
-	fmt.Fprintf(w, "\n%-27s %8s   %7s\n", "Encrypted maps", "Versions", "Share")
-	for _, row := range []struct {
-		label string
-		count int
-	}{
-		{"Exact key", s.exactCovered},
-		{"Imported key only", s.importedOnly},
-		{"Prediction only", s.predictedOnly},
-		{"No key or prediction", s.missing},
-	} {
-		fmt.Fprintf(w, "  %-25s %8s   %6.2f%%\n", row.label, number(row.count), percent(row.count, s.encrypted))
-	}
-	fmt.Fprintf(w, "\n  Known key coverage     %s/%s (%.2f%%)\n", number(s.afterCoverage), number(s.encrypted), percent(s.afterCoverage, s.encrypted))
-	fmt.Fprintf(w, "  With plaintext maps    %s/%s (%.2f%%)\n", number(s.plaintext+s.afterCoverage), number(s.total), percent(s.plaintext+s.afterCoverage, s.total))
-
-	fmt.Fprintln(w, "\nChanges this run")
-	fmt.Fprintf(w, "  Known key coverage     %.2f%% -> %.2f%% (+%s versions)\n", percent(s.beforeCoverage, s.encrypted), percent(s.afterCoverage, s.encrypted), number(s.afterCoverage-s.beforeCoverage))
-	fmt.Fprintf(w, "  Exact entries          +%s added / %s promoted (%s corrected)\n", number(s.added), number(s.promoted), number(s.corrected))
-	fmt.Fprintf(w, "  Predictions            %s new / %s changed / %s unchanged\n", number(s.newPredictions), number(s.changedPredictions), number(s.unchangedPredictions))
-	fmt.Fprintf(w, "                         %s preserved without recomputing\n", number(s.preserved))
-
-	fmt.Fprintln(w, "\nRecovery")
-	fmt.Fprintf(w, "  Deterministic          %s exact / %s ambiguous / %s failed\n", number(s.recovered), number(s.ambiguous), number(s.failed))
-	fmt.Fprintf(w, "  Existing keys          %s confirmed / %s conflicts\n", number(s.confirmed), number(s.conflicts))
-	fmt.Fprintf(w, "  Training maps          %s used / %s skipped\n", number(s.trained), number(s.skippedTraining))
-	fmt.Fprintf(w, "  Key bytes              %s determined / %s ambiguous\n", number(s.determinedBytes), number(s.ambiguousBytes))
-	if s.noTraining > 0 {
-		fmt.Fprintf(w, "  Prediction skipped     %s without training data\n", number(s.noTraining))
-	}
-
-	fmt.Fprintln(w, "\nAmbiguous maps without imported/exact keys")
-	fmt.Fprintf(w, "  %-20s %8s %8s %8s %8s\n", "Ambiguous key bytes", "1", "2-4", "5-16", "17+")
-	fmt.Fprintf(w, "  %-20s %8s %8s %8s %8s\n", "Map versions", number(s.unknownAmbiguity[0]), number(s.unknownAmbiguity[1]), number(s.unknownAmbiguity[2]), number(s.unknownAmbiguity[3]))
-
-	if s.invalid+s.failed+s.predictionErrors == 0 {
-		fmt.Fprintln(w, "\nFailures: none")
-	} else {
-		fmt.Fprintln(w, "\nFailures")
-		fmt.Fprintf(w, "  Invalid map data       %s\n", number(s.invalid))
-		fmt.Fprintf(w, "  No plausible length    %s\n", number(s.noKeyLength))
-		fmt.Fprintf(w, "  Other solver errors    %s\n", number(s.solverErrors))
-		fmt.Fprintf(w, "  Prediction errors      %s\n", number(s.predictionErrors))
-	}
-
-	fmt.Fprintln(w, "\nInventory files (all versions)")
-	fmt.Fprintf(w, "  %s imported / %s exact / %s predicted\n", number(len(entries.imported)), number(len(entries.exact)), number(len(entries.predicted)))
-	fmt.Fprintln(w, "\nImported keys are unverified; predictions are excluded from coverage.")
-	fmt.Fprintln(w, "Exact means unique under the solver's constraints.")
 }
