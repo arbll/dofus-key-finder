@@ -13,7 +13,8 @@ const (
 	maxKeyLength = 277
 )
 
-var errNoKeyLength = errors.New("no plausible key length")
+// ErrNoKeyLength means no tested key length satisfies the cell constraints.
+var ErrNoKeyLength = errors.New("no plausible key length")
 
 // keyBytes is a bit set of possible ASCII key bytes (32 through 127).
 type keyBytes struct {
@@ -73,7 +74,7 @@ func possibleKeyLengths(m maps.Map) ([]int, error) {
 		}
 	}
 	if len(lengths) == 0 {
-		return nil, fmt.Errorf("map %d (%s): %w", m.ID, m.Date, errNoKeyLength)
+		return nil, fmt.Errorf("map %d (%s): %w", m.ID, m.Date, ErrNoKeyLength)
 	}
 	return lengths, nil
 }

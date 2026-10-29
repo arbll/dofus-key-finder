@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -88,12 +89,15 @@ func TestProcessPreservesProvenanceAndConflicts(t *testing.T) {
 	if stats.added != 3 || stats.confirmed != 2 || stats.conflicts != 1 || stats.ambiguous != 1 || stats.failed != 1 || stats.invalid != 2 || stats.plaintext != 1 || stats.beforeCoverage != 4 || stats.afterCoverage != 5 {
 		t.Fatalf("unexpected results: %+v", stats)
 	}
+	if stats.exactCovered != 4 || stats.importedOnly != 1 || stats.predictedOnly != 0 || stats.missing != 1 || stats.noKeyLength != 1 || stats.solverErrors != 0 || stats.unknownAmbiguity != [4]int{} {
+		t.Fatalf("incorrect final coverage or unknown-map statistics: %+v", stats)
+	}
 	if !strings.Contains(diagnostics.String(), "conflicts with existing key") {
 		t.Fatal("missing conflict diagnostic")
 	}
 	var summary bytes.Buffer
 	stats.print(&summary, entries)
-	for _, want := range []string{"5/6 (83.33%)", "+3 added", "4 imported, 4 exact, 0 predicted"} {
+	for _, want := range []string{"5/6 (83.33%)", "+3 added", "4 imported / 4 exact / 0 predicted", "(+1 versions)"} {
 		if !strings.Contains(summary.String(), want) {
 			t.Errorf("summary missing %q:\n%s", want, &summary)
 		}
@@ -172,6 +176,9 @@ func TestPredictionsPromotedByExactRecovery(t *testing.T) {
 	if stats.promoted != 2 || stats.corrected != 1 || stats.added != 0 || stats.beforeCoverage != 0 || stats.afterCoverage != 2 {
 		t.Fatalf("unexpected results: %+v", stats)
 	}
+	if stats.exactCovered != 2 || stats.predictedOnly != 1 || stats.changedPredictions != 1 || stats.preserved != 0 {
+		t.Fatalf("promotions counted as preserved predictions: %+v", stats)
+	}
 	if len(entries.exact) != 2 || entries.predicted[0].Version != previous.predicted[2].Version || len(previous.predicted) != 3 {
 		t.Fatalf("unexpected inventories: %+v", entries)
 	}
@@ -212,6 +219,8 @@ func TestRunRejectsPredictionsOverlappingTrustedInventories(t *testing.T) {
 
 func TestUnifiedPredictionAndIdempotence(t *testing.T) {
 	solved, _, ambiguous := recoveryFixtures(t)
+	solved.ID, ambiguous.ID = 1, 1
+	solved.Date, ambiguous.Date = "exact", "prediction"
 	var diagnostics bytes.Buffer
 	loaded := []maps.Map{solved, ambiguous}
 	entries, stats := process(loaded, inventory{}, &diagnostics)
@@ -221,14 +230,62 @@ func TestUnifiedPredictionAndIdempotence(t *testing.T) {
 	if entries.predicted[0].Version != (keys.Version{ID: ambiguous.ID, Date: ambiguous.Date}) {
 		t.Fatal("prediction misrouted")
 	}
+	ambiguousMaps := 0
+	for _, count := range stats.unknownAmbiguity {
+		ambiguousMaps += count
+	}
+	if stats.uniqueIDs != 1 || stats.exactCovered != 1 || stats.predictedOnly != 1 || stats.missing != 0 || stats.newPredictions != 1 || ambiguousMaps != 1 {
+		t.Fatalf("incorrect coverage or new prediction count: %+v", stats)
+	}
 	again, stats := process(loaded, entries, &diagnostics)
 	if !reflect.DeepEqual(entries, again) || stats.promoted != 0 {
 		t.Fatal("second run changed inventories")
+	}
+	if stats.newPredictions != 0 || stats.changedPredictions != 0 || stats.unchangedPredictions != 1 || stats.preserved != 0 || stats.afterCoverage != stats.beforeCoverage {
+		t.Fatalf("unchanged prediction counted as a change: %+v", stats)
+	}
+	changed := inventory{exact: entries.exact, predicted: slices.Clone(entries.predicted)}
+	changed.predicted[0].Key = "41"
+	refreshed, stats := process(loaded, changed, &diagnostics)
+	if !reflect.DeepEqual(entries, refreshed) || stats.changedPredictions != 1 || stats.newPredictions != 0 || stats.unchangedPredictions != 0 {
+		t.Fatalf("changed prediction was not reported: %+v", stats)
 	}
 	// Predictions cannot train themselves when no known or exact key is available.
 	onlyPrediction, stats := process([]maps.Map{ambiguous}, inventory{predicted: entries.predicted}, &diagnostics)
 	if stats.trained != 0 || stats.predicted != 0 || !reflect.DeepEqual(onlyPrediction.predicted, entries.predicted) {
 		t.Fatal("prediction entered training")
+	}
+	if stats.preserved != 1 || stats.noTraining != 1 || stats.predictedOnly != 1 || stats.missing != 0 {
+		t.Fatalf("preserved prediction was not reported: %+v", stats)
+	}
+	_, stats = process([]maps.Map{ambiguous}, inventory{}, &diagnostics)
+	if stats.noTraining != 1 || stats.missing != 1 || stats.predictedOnly != 0 || stats.preserved != 0 {
+		t.Fatalf("map without a key or training data was not reported as missing: %+v", stats)
+	}
+}
+
+func TestProcessReportsFailuresAndPreservedPredictions(t *testing.T) {
+	loaded := []maps.Map{
+		{ID: 1, MapData: "!"},
+		{ID: 2, MapData: ""},
+		{ID: 3, MapData: "00"},
+		{ID: 4, MapData: strings.Repeat("ff", 300)},
+	}
+	previous := inventory{predicted: []keys.Entry{
+		{Version: keys.Version{ID: 1}, Key: "41"},
+		{Version: keys.Version{ID: 4}, Key: "41"},
+		{Version: keys.Version{ID: 99}, Key: "41"},
+	}}
+	var diagnostics bytes.Buffer
+	entries, stats := process(loaded, previous, &diagnostics)
+	if !reflect.DeepEqual(entries.predicted, previous.predicted) || stats.preserved != 3 {
+		t.Fatalf("predictions for invalid, failed, or absent maps were not preserved: %+v", stats)
+	}
+	if stats.total != 4 || stats.uniqueIDs != 4 || stats.invalid != 2 || stats.encrypted != 2 || stats.failed != 2 || stats.noKeyLength != 1 || stats.solverErrors != 1 || stats.predictionErrors != 0 {
+		t.Fatalf("incorrect failure breakdown: %+v", stats)
+	}
+	if stats.predictedOnly != 1 || stats.missing != 1 || stats.exactCovered != 0 || stats.importedOnly != 0 || stats.unknownAmbiguity != [4]int{} {
+		t.Fatalf("inventory entries outside encrypted input affected coverage: %+v", stats)
 	}
 }
 

@@ -46,7 +46,7 @@ func TestKeyLengthRejectsShortAndInvalidData(t *testing.T) {
 		t.Fatal("expected invalid hexadecimal data error")
 	}
 	_, err = keyLength(maps.Map{ID: 1, MapData: "00"})
-	if err == nil || errors.Is(err, errNoKeyLength) {
+	if err == nil || errors.Is(err, ErrNoKeyLength) {
 		t.Fatalf("short data error = %v", err)
 	}
 }

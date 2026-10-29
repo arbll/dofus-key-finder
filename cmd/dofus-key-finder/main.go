@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/arbll/dofus-key-finder/internal/decrypt"
@@ -108,12 +109,20 @@ func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer, e
 
 type results struct {
 	total, plaintext, encrypted, invalid int
+	uniqueIDs                            int
+	exactCovered, importedOnly           int
+	predictedOnly, missing               int
 	recovered, ambiguous, failed         int
+	noKeyLength, solverErrors            int
 	beforeCoverage, afterCoverage        int
 	added, confirmed, conflicts          int
 	promoted, corrected                  int
 	predicted, trained, skippedTraining  int
+	newPredictions, changedPredictions   int
+	unchangedPredictions, preserved      int
+	noTraining, predictionErrors         int
 	determinedBytes, ambiguousBytes      int
+	unknownAmbiguity                     [4]int
 }
 
 func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inventory, results) {
@@ -133,9 +142,13 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 		predicted[entry.Version] = entry
 	}
 	promoted := make(map[keys.Version]bool)
+	refreshed := make(map[keys.Version]bool)
+	ids := make(map[int]bool)
+	var encryptedVersions []keys.Version
 	stats := results{total: len(loaded)}
 	var pending []maps.Map
 	for _, m := range loaded {
+		ids[m.ID] = true
 		// Encrypted mapData is hexadecimal; plaintext is ten-character cells.
 		if _, err := hex.DecodeString(m.MapData); err != nil {
 			if isPlaintext(m.MapData) {
@@ -153,6 +166,7 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 		}
 		stats.encrypted++
 		version := keys.Version{ID: m.ID, Date: m.Date}
+		encryptedVersions = append(encryptedVersions, version)
 		existing, exists := known[version]
 		if exists {
 			stats.beforeCoverage++
@@ -163,11 +177,28 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 		stats.ambiguousBytes += recovery.Stats.AmbiguousBytes
 		if errors.Is(err, decrypt.ErrAmbiguous) {
 			stats.ambiguous++
+			if !exists {
+				switch n := recovery.Stats.AmbiguousBytes; {
+				case n == 1:
+					stats.unknownAmbiguity[0]++
+				case n <= 4:
+					stats.unknownAmbiguity[1]++
+				case n <= 16:
+					stats.unknownAmbiguity[2]++
+				default:
+					stats.unknownAmbiguity[3]++
+				}
+			}
 			pending = append(pending, m)
 			continue
 		}
 		if err != nil {
 			stats.failed++
+			if errors.Is(err, decrypt.ErrNoKeyLength) {
+				stats.noKeyLength++
+			} else {
+				stats.solverErrors++
+			}
 			fmt.Fprintln(diagnostics, err)
 			continue
 		}
@@ -231,30 +262,57 @@ func process(loaded []maps.Map, previous inventory, diagnostics io.Writer) (inve
 		}
 		recovery, err := decrypt.Key(m, model)
 		if errors.Is(err, decrypt.ErrAmbiguous) {
+			stats.noTraining++
 			continue
 		}
 		if err != nil {
+			stats.predictionErrors++
 			fmt.Fprintln(diagnostics, err)
 			continue
 		}
 		if !recovery.UsedPrediction {
-			stats.failed++
+			stats.predictionErrors++
 			fmt.Fprintf(diagnostics, "Map %d (%s): inconsistent recovery method; prediction not saved\n", m.ID, m.Date)
 			continue
 		}
 		entry := keys.Entry{Version: version, Key: keys.Encode(recovery.Key)}
-		if _, exists := predicted[version]; !exists {
+		if old, exists := predicted[version]; !exists {
 			addedPredictions = append(addedPredictions, entry)
+			stats.newPredictions++
+		} else {
+			key, _ := keys.Decode(old.Key) // Validated by keys.Load.
+			if bytes.Equal(key, recovery.Key) {
+				stats.unchangedPredictions++
+			} else {
+				stats.changedPredictions++
+			}
 		}
 		predicted[version] = entry
+		refreshed[version] = true
 		stats.predicted++
 	}
 	for _, entry := range previous.predicted {
 		if !promoted[entry.Version] {
 			entries.predicted = append(entries.predicted, predicted[entry.Version])
+			if !refreshed[entry.Version] {
+				stats.preserved++
+			}
 		}
 	}
 	entries.predicted = append(entries.predicted, addedPredictions...)
+	stats.uniqueIDs = len(ids)
+	for _, version := range encryptedVersions {
+		switch {
+		case exact[version]:
+			stats.exactCovered++
+		case known[version].Key != "":
+			stats.importedOnly++
+		case predicted[version].Key != "":
+			stats.predictedOnly++
+		default:
+			stats.missing++
+		}
+	}
 	return entries, stats
 }
 
@@ -271,16 +329,65 @@ func percent(n, total int) float64 {
 	return 100 * float64(n) / float64(total)
 }
 
+func number(n int) string {
+	text := strconv.Itoa(n)
+	for i := len(text) - 3; i > 0; i -= 3 {
+		text = text[:i] + "," + text[i:]
+	}
+	return text
+}
+
 func (s results) print(w io.Writer, entries inventory) {
-	fmt.Fprintf(w, "Maps: %d map versions (%d plaintext, %d encrypted, %d invalid)\n", s.total, s.plaintext, s.encrypted, s.invalid)
-	fmt.Fprintf(w, "Encrypted maps with imported or exact keys: %d/%d (%.2f%%)\n", s.afterCoverage, s.encrypted, percent(s.afterCoverage, s.encrypted))
-	fmt.Fprintf(w, "Plaintext or imported/exact key available: %d/%d (%.2f%%)\n", s.plaintext+s.afterCoverage, s.total, percent(s.plaintext+s.afterCoverage, s.total))
-	fmt.Fprintf(w, "Exact recovery this run: %d/%d (%.2f%%); ambiguous: %d; failed: %d\n", s.recovered, s.encrypted, percent(s.recovered, s.encrypted), s.ambiguous, s.failed)
-	fmt.Fprintf(w, "Model: %d training maps (%d skipped); %d predictions generated\n", s.trained, s.skippedTraining, s.predicted)
-	fmt.Fprintf(w, "Deterministic key bytes: %d fixed, %d ambiguous\n", s.determinedBytes, s.ambiguousBytes)
-	fmt.Fprintf(w, "Existing keys confirmed: %d; conflicts preserved: %d\n", s.confirmed, s.conflicts)
-	fmt.Fprintf(w, "Key inventories: %d imported, %d exact, %d predicted\n", len(entries.imported), len(entries.exact), len(entries.predicted))
-	fmt.Fprintf(w, "Exact keys: +%d added; predictions promoted: %d (%d corrected)\n", s.added, s.promoted, s.corrected)
-	fmt.Fprintln(w, "Coverage includes unverified imported keys and excludes predictions; exact means unique under the current constraints.")
-	fmt.Fprintf(w, "Encrypted-map coverage: %.2f%% -> %.2f%%\n", percent(s.beforeCoverage, s.encrypted), percent(s.afterCoverage, s.encrypted))
+	fmt.Fprintln(w, "Dofus key finder")
+	fmt.Fprintf(w, "  %s map IDs / %s versions\n", number(s.uniqueIDs), number(s.total))
+	fmt.Fprintf(w, "  %s plaintext / %s encrypted / %s invalid\n", number(s.plaintext), number(s.encrypted), number(s.invalid))
+
+	fmt.Fprintf(w, "\n%-27s %8s   %7s\n", "Encrypted maps", "Versions", "Share")
+	for _, row := range []struct {
+		label string
+		count int
+	}{
+		{"Exact key", s.exactCovered},
+		{"Imported key only", s.importedOnly},
+		{"Prediction only", s.predictedOnly},
+		{"No key or prediction", s.missing},
+	} {
+		fmt.Fprintf(w, "  %-25s %8s   %6.2f%%\n", row.label, number(row.count), percent(row.count, s.encrypted))
+	}
+	fmt.Fprintf(w, "\n  Known key coverage     %s/%s (%.2f%%)\n", number(s.afterCoverage), number(s.encrypted), percent(s.afterCoverage, s.encrypted))
+	fmt.Fprintf(w, "  With plaintext maps    %s/%s (%.2f%%)\n", number(s.plaintext+s.afterCoverage), number(s.total), percent(s.plaintext+s.afterCoverage, s.total))
+
+	fmt.Fprintln(w, "\nChanges this run")
+	fmt.Fprintf(w, "  Known key coverage     %.2f%% -> %.2f%% (+%s versions)\n", percent(s.beforeCoverage, s.encrypted), percent(s.afterCoverage, s.encrypted), number(s.afterCoverage-s.beforeCoverage))
+	fmt.Fprintf(w, "  Exact entries          +%s added / %s promoted (%s corrected)\n", number(s.added), number(s.promoted), number(s.corrected))
+	fmt.Fprintf(w, "  Predictions            %s new / %s changed / %s unchanged\n", number(s.newPredictions), number(s.changedPredictions), number(s.unchangedPredictions))
+	fmt.Fprintf(w, "                         %s preserved without recomputing\n", number(s.preserved))
+
+	fmt.Fprintln(w, "\nRecovery")
+	fmt.Fprintf(w, "  Deterministic          %s exact / %s ambiguous / %s failed\n", number(s.recovered), number(s.ambiguous), number(s.failed))
+	fmt.Fprintf(w, "  Existing keys          %s confirmed / %s conflicts\n", number(s.confirmed), number(s.conflicts))
+	fmt.Fprintf(w, "  Training maps          %s used / %s skipped\n", number(s.trained), number(s.skippedTraining))
+	fmt.Fprintf(w, "  Key bytes              %s determined / %s ambiguous\n", number(s.determinedBytes), number(s.ambiguousBytes))
+	if s.noTraining > 0 {
+		fmt.Fprintf(w, "  Prediction skipped     %s without training data\n", number(s.noTraining))
+	}
+
+	fmt.Fprintln(w, "\nAmbiguous maps without imported/exact keys")
+	fmt.Fprintf(w, "  %-20s %8s %8s %8s %8s\n", "Ambiguous key bytes", "1", "2-4", "5-16", "17+")
+	fmt.Fprintf(w, "  %-20s %8s %8s %8s %8s\n", "Map versions", number(s.unknownAmbiguity[0]), number(s.unknownAmbiguity[1]), number(s.unknownAmbiguity[2]), number(s.unknownAmbiguity[3]))
+
+	if s.invalid+s.failed+s.predictionErrors == 0 {
+		fmt.Fprintln(w, "\nFailures: none")
+	} else {
+		fmt.Fprintln(w, "\nFailures")
+		fmt.Fprintf(w, "  Invalid map data       %s\n", number(s.invalid))
+		fmt.Fprintf(w, "  No plausible length    %s\n", number(s.noKeyLength))
+		fmt.Fprintf(w, "  Other solver errors    %s\n", number(s.solverErrors))
+		fmt.Fprintf(w, "  Prediction errors      %s\n", number(s.predictionErrors))
+	}
+
+	fmt.Fprintln(w, "\nInventory files (all versions)")
+	fmt.Fprintf(w, "  %s imported / %s exact / %s predicted\n", number(len(entries.imported)), number(len(entries.exact)), number(len(entries.predicted)))
+	fmt.Fprintln(w, "\nImported keys are unverified; predictions are excluded from coverage.")
+	fmt.Fprintln(w, "Exact means unique under the solver's constraints.")
 }
