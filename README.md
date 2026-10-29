@@ -26,7 +26,7 @@ The bundled data contains **9,811 map IDs** across **21,917 versions**: **9,007 
 | **Total** | **12,910** | **100%** |
 
 - **Exact key:** the solver found only one possible key under its map-format rules.
-- **Imported key only:** a key from an external source that the solver has not confirmed.
+- **Imported key only:** a key recovered from various sources that compiled keys captured in game.
 - **Prediction only:** a key guessed using statistics from known keys. It may be wrong.
 
 ## Usage
