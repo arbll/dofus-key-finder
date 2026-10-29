@@ -108,7 +108,7 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 	solved, key, _ := recoveryFixtures(t)
 	dir := t.TempDir()
 	mapsPath := filepath.Join(dir, "maps.csv")
-	paths := inventoryPaths{filepath.Join(dir, "imported.csv"), filepath.Join(dir, "exact.csv"), filepath.Join(dir, "predicted.csv"), filepath.Join(dir, "merged.yaml")}
+	paths := inventoryPaths{filepath.Join(dir, "imported.csv"), filepath.Join(dir, "exact.csv"), filepath.Join(dir, "predicted.csv"), filepath.Join(dir, "merged.csv")}
 	file, err := os.Create(mapsPath)
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 		t.Fatalf("missing new recovery: %s\n%s", &summary, first)
 	}
 	merged, err := os.ReadFile(paths.merged)
-	if err != nil || string(merged) != "- id: 1\n  date: \"00123\"\n  key: \""+keys.Encode(key)+"\"\n" {
+	if err != nil || string(merged) != "id,date,key,source\r\n1,00123,"+keys.Encode(key)+",merged\r\n" {
 		t.Fatalf("unexpected merged output: %s, error %v", merged, err)
 	}
 	summary.Reset()
@@ -179,7 +179,7 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 
 func TestRunMergesInventoryPriorities(t *testing.T) {
 	dir := t.TempDir()
-	paths := inventoryPaths{filepath.Join(dir, "imported.csv"), filepath.Join(dir, "exact.csv"), filepath.Join(dir, "predicted.csv"), filepath.Join(dir, "merged.yaml")}
+	paths := inventoryPaths{filepath.Join(dir, "imported.csv"), filepath.Join(dir, "exact.csv"), filepath.Join(dir, "predicted.csv"), filepath.Join(dir, "merged.csv")}
 	for _, input := range []struct {
 		path    string
 		entries []keys.Entry
@@ -202,11 +202,12 @@ func TestRunMergesInventoryPriorities(t *testing.T) {
 	if err := run(mapsPath, paths, &bytes.Buffer{}, &bytes.Buffer{}, false, false); err != nil {
 		t.Fatal(err)
 	}
-	want := "- id: 1\n  date: \"001\"\n  key: \"41\"\n" +
-		"- id: 1\n  date: \"002\"\n  key: \"43\"\n" +
-		"- id: 2\n  date: \"001\"\n  key: \"44\"\n"
+	want := "id,date,key,source\r\n" +
+		"1,001,41,merged\r\n" +
+		"1,002,43,imported\r\n" +
+		"2,001,44,predicted\r\n"
 	if got, err := os.ReadFile(paths.merged); err != nil || string(got) != want {
-		t.Fatalf("merged YAML = %s, error %v; want %s", got, err, want)
+		t.Fatalf("merged CSV = %s, error %v; want %s", got, err, want)
 	}
 }
 
@@ -251,7 +252,7 @@ func TestPredictionsPromotedByExactRecovery(t *testing.T) {
 
 func TestRunRejectsPredictionsOverlappingTrustedInventories(t *testing.T) {
 	dir := t.TempDir()
-	paths := inventoryPaths{filepath.Join(dir, "imported.csv"), filepath.Join(dir, "exact.csv"), filepath.Join(dir, "predicted.csv"), filepath.Join(dir, "merged.yaml")}
+	paths := inventoryPaths{filepath.Join(dir, "imported.csv"), filepath.Join(dir, "exact.csv"), filepath.Join(dir, "predicted.csv"), filepath.Join(dir, "merged.csv")}
 	entry := []keys.Entry{{Version: keys.Version{ID: 1, Date: "001"}, Key: "41"}}
 	for _, path := range []string{paths.imported, paths.predicted} {
 		if err := keys.Save(path, entry); err != nil {
@@ -355,7 +356,7 @@ func TestRunRejectsAliasedInventory(t *testing.T) {
 	if err := os.Link(source, alias); err != nil {
 		t.Fatal(err)
 	}
-	err := run(source, inventoryPaths{filepath.Join(dir, "keys_imported.csv"), alias, filepath.Join(dir, "keys_predicted.csv"), filepath.Join(dir, "keys_merged.yaml")}, &bytes.Buffer{}, &bytes.Buffer{}, false, false)
+	err := run(source, inventoryPaths{filepath.Join(dir, "keys_imported.csv"), alias, filepath.Join(dir, "keys_predicted.csv"), filepath.Join(dir, "keys_merged.csv")}, &bytes.Buffer{}, &bytes.Buffer{}, false, false)
 	if err == nil || !strings.Contains(err.Error(), "different files") {
 		t.Fatalf("expected alias rejection, got %v", err)
 	}

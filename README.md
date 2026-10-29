@@ -14,7 +14,7 @@ Recover decryption keys for Dofus 1.29 maps from encrypted map data.
 
 ## Progress
 
-<sub><em><a href="https://github.com/arbll/dofus-key-finder/releases/latest/download/keys_merged.yaml">Download the latest keys</a></em></sub>
+<sub><em><a href="https://github.com/arbll/dofus-key-finder/releases/latest/download/keys_merged.csv">Download the latest keys</a></em></sub>
 
 The bundled data contains **9,811 map IDs** across **21,917 versions**: **9,007 plaintext** and **12,910 encrypted**.
 
@@ -51,7 +51,7 @@ cd dofus-key-finder
 dofus-key-finder
 ```
 
-Reads the bundled maps and imported keys, updates `data/keys_exact.csv` and `data/keys_predicted.csv`, writes the final result to `data/keys_merged.yaml`, and prints a coverage summary. The merged file contains one key per map ID and date, with priority **Exact → Imported → Predicted**. Use `-merged-keys-file` to change its output path.
+Reads the bundled maps and imported keys, updates `data/keys_exact.csv` and `data/keys_predicted.csv`, writes the final result to `data/keys_merged.csv`, and prints a coverage summary. The merged file contains one key per map ID and date, with priority **Exact → Imported → Predicted**. The `source` column identifies each key as `merged` (exact solver), `imported`, or `predicted`. Use `-merged-keys-file` to change its output path.
 
 | Task | Command |
 | :--- | :--- |

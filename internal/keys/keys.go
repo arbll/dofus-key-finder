@@ -2,7 +2,6 @@
 package keys
 
 import (
-	"bufio"
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
@@ -115,22 +114,31 @@ func Save(path string, entries []Entry) error {
 	})
 }
 
-// SaveMerged writes one key per map version as YAML, sorted by ID and date.
-// Groups are ordered from highest to lowest priority; key encodings are preserved.
-func SaveMerged(path string, groups ...[]Entry) error {
-	merged := make(map[Version]Entry)
-	for _, entries := range groups {
-		for _, entry := range entries {
+// SaveMerged writes one key and its source per map version as CSV, sorted by
+// ID and date. Exact keys take priority over imported keys, then predictions.
+func SaveMerged(path string, exact, imported, predicted []Entry) error {
+	type mergedEntry struct {
+		Entry
+		source string
+	}
+	merged := make(map[Version]mergedEntry)
+	for _, group := range []struct {
+		entries []Entry
+		source  string
+	}{
+		{exact, "merged"}, {imported, "imported"}, {predicted, "predicted"},
+	} {
+		for _, entry := range group.entries {
 			if _, exists := merged[entry.Version]; !exists {
-				merged[entry.Version] = entry
+				merged[entry.Version] = mergedEntry{entry, group.source}
 			}
 		}
 	}
-	entries := make([]Entry, 0, len(merged))
+	entries := make([]mergedEntry, 0, len(merged))
 	for _, entry := range merged {
 		entries = append(entries, entry)
 	}
-	slices.SortFunc(entries, func(a, b Entry) int {
+	slices.SortFunc(entries, func(a, b mergedEntry) int {
 		if a.ID < b.ID {
 			return -1
 		}
@@ -140,18 +148,18 @@ func SaveMerged(path string, groups ...[]Entry) error {
 		return strings.Compare(a.Date, b.Date)
 	})
 	return save(path, func(w io.Writer) error {
-		writer := bufio.NewWriter(w)
-		if len(entries) == 0 {
-			if _, err := fmt.Fprintln(writer, "[]"); err != nil {
-				return err
-			}
+		writer := csv.NewWriter(w)
+		writer.UseCRLF = true
+		if err := writer.Write([]string{"id", "date", "key", "source"}); err != nil {
+			return err
 		}
 		for _, entry := range entries {
-			if _, err := fmt.Fprintf(writer, "- id: %d\n  date: %s\n  key: %s\n", entry.ID, strconv.Quote(entry.Date), strconv.Quote(entry.Key)); err != nil {
+			if err := writer.Write([]string{strconv.Itoa(entry.ID), entry.Date, entry.Key, entry.source}); err != nil {
 				return err
 			}
 		}
-		return writer.Flush()
+		writer.Flush()
+		return writer.Error()
 	})
 }
 

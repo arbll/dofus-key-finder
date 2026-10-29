@@ -31,7 +31,7 @@ func main() {
 	imported := flag.String("imported-keys-file", "data/keys_imported.csv", "imported keys to read")
 	exact := flag.String("exact-keys-file", "data/keys_exact.csv", "exact keys to read and update")
 	predicted := flag.String("predicted-keys-file", "data/keys_predicted.csv", "predicted keys to read, update, and promote when recovered exactly")
-	merged := flag.String("merged-keys-file", "data/keys_merged.yaml", "merged YAML output, prioritizing exact, imported, then predicted keys")
+	merged := flag.String("merged-keys-file", "data/keys_merged.csv", "merged CSV output, prioritizing exact, imported, then predicted keys")
 	evaluate := flag.Bool("evaluate", false, "evaluate the predictive model on held-out known keys without writing inventories")
 	verbose := flag.Bool("verbose", false, "show solver, training, ambiguity, and inventory details")
 	flag.Parse()
