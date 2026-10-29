@@ -10,7 +10,7 @@ The command first recovers keys uniquely determined by the cell constraints. It 
 
 | File | Contents |
 | --- | --- |
-| `data/maps.csv.gz` | Gzip-compressed source map data (stored directly in Git). |
+| `data/maps.csv.gz` | Gzip-compressed source map data. |
 | `data/keys_imported.csv` | Externally sourced keys, preserved unchanged. |
 | `data/keys_exact.csv` | Unique deterministic recoveries, including imported matches. |
 | `data/keys_predicted.csv` | Statistical predictions; may be incorrect. |
