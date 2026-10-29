@@ -21,12 +21,10 @@ type Version struct {
 
 type Entry struct {
 	Version
-	Key      string // Original hex-encoded, URL-escaped representation.
-	Imported bool
-	Status   string
+	Key string // Original hex-encoded, URL-escaped representation.
 }
 
-var header = []string{"id", "date", "key", "imported", "status"}
+var header = []string{"id", "date", "key"}
 
 // Decode returns the unescaped key bytes used by the cipher.
 func Decode(encoded string) ([]byte, error) {
@@ -84,14 +82,10 @@ func Load(path string) ([]Entry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("keys line %d: invalid ID: %w", line, err)
 		}
-		imported, err := strconv.ParseBool(row[3])
-		if err != nil {
-			return nil, fmt.Errorf("keys line %d: invalid imported flag: %w", line, err)
-		}
 		if _, err := Decode(row[2]); err != nil {
 			return nil, fmt.Errorf("keys line %d: invalid key: %w", line, err)
 		}
-		entry := Entry{Version{id, row[1]}, row[2], imported, row[4]}
+		entry := Entry{Version{id, row[1]}, row[2]}
 		if seen[entry.Version] {
 			return nil, fmt.Errorf("keys line %d: duplicate map %d (%s)", line, id, entry.Date)
 		}
@@ -125,7 +119,7 @@ func Save(path string, entries []Entry) error {
 		return err
 	}
 	for _, entry := range entries {
-		if err := writer.Write([]string{strconv.Itoa(entry.ID), entry.Date, entry.Key, strconv.FormatBool(entry.Imported), entry.Status}); err != nil {
+		if err := writer.Write([]string{strconv.Itoa(entry.ID), entry.Date, entry.Key}); err != nil {
 			return err
 		}
 	}

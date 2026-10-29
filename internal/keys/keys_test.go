@@ -30,8 +30,8 @@ func TestInventoryRoundTrip(t *testing.T) {
 		t.Fatalf("missing inventory: %v, %v", got, err)
 	}
 	entries := []Entry{
-		{Version{4, "00123"}, "2541", true, "unknown"},
-		{Version{4, "00124"}, Encode([]byte("A%+ ")), false, "exact"},
+		{Version{4, "00123"}, "2541"},
+		{Version{4, "00124"}, Encode([]byte("A%+ "))},
 	}
 	// Use a valid, noncanonical representation and verify it stays untouched.
 	entries[0].Key = "253431" // %41 decodes to A.
@@ -57,12 +57,12 @@ func TestInventoryRoundTrip(t *testing.T) {
 
 func TestLoadRejectsInvalidInventory(t *testing.T) {
 	for _, row := range []string{
-		"4,001,41,maybe,unknown\n",
-		"4,001,zz,true,unknown\n",
-		"4,001,25,true,unknown\n",
-		"4,001,,true,unknown\n",
-		"4,001,41,true,unknown\n4,001,42,false,exact\n",
-		"4,001,41,true\n",
+		"4,001,zz\n",
+		"4,001,25\n",
+		"4,001,\n",
+		"4,001,41\n4,001,42\n",
+		"4,001\n",
+		"4,001,41,true,unknown\n",
 	} {
 		path := filepath.Join(t.TempDir(), "keys.csv")
 		data := strings.Join(header, ",") + "\n" + row

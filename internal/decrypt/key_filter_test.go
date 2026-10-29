@@ -100,24 +100,29 @@ func TestKeyInvalidInput(t *testing.T) {
 // verifies that Key either returns that exact key or reports the full count.
 // Run with go test ./internal/decrypt -run '^TestKnownKeys$' -v for percentiles.
 func TestKnownKeys(t *testing.T) {
-	file, err := os.Open("../../data/keys.csv")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-	rows, err := csv.NewReader(file).ReadAll()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) < 2 || !slices.Equal(rows[0], []string{"id", "date", "key", "imported", "status"}) {
-		t.Fatal("missing keys or unexpected keys CSV header")
+	var rows [][]string
+	// Predictions are deliberately excluded: they are not known-good fixtures.
+	for _, path := range []string{"../../data/keys-imported.csv", "../../data/keys-exact.csv"} {
+		file, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		part, err := csv.NewReader(file).ReadAll()
+		file.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(part) < 1 || !slices.Equal(part[0], []string{"id", "date", "key"}) {
+			t.Fatal("unexpected keys CSV header")
+		}
+		rows = append(rows, part[1:]...)
 	}
 	type mapVersion struct {
 		id   int
 		date string
 	}
-	known := make(map[mapVersion][]byte, len(rows)-1)
-	for _, row := range rows[1:] {
+	known := make(map[mapVersion][]byte, len(rows))
+	for _, row := range rows {
 		id, err := strconv.Atoi(row[0])
 		if err != nil {
 			t.Fatal(err)
@@ -131,8 +136,8 @@ func TestKnownKeys(t *testing.T) {
 			t.Fatal(err)
 		}
 		version := mapVersion{id, row[1]}
-		if _, exists := known[version]; exists {
-			t.Fatalf("duplicate known map %v", version)
+		if previous, exists := known[version]; exists && !bytes.Equal(previous, []byte(key)) {
+			t.Fatalf("conflicting known map %v", version)
 		}
 		known[version] = []byte(key)
 	}

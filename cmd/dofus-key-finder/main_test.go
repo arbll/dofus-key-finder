@@ -17,7 +17,7 @@ import (
 	"github.com/arbll/dofus-key-finder/internal/maps"
 )
 
-// Exercise the actual solver using real map data, independent of keys.csv.
+// Exercise the actual solver using real map data, independent of the key inventories.
 func recoveryFixtures(t *testing.T) (maps.Map, []byte, maps.Map) {
 	t.Helper()
 	loaded, err := maps.Load("../../data/maps.csv")
@@ -60,41 +60,40 @@ func TestProcessPreservesProvenanceAndConflicts(t *testing.T) {
 		maps.Map{ID: -1, Date: "empty"},
 		maps.Map{ID: -1, Date: "impossible", MapData: strings.Repeat("ff", 300)})
 	encoded := hex.EncodeToString([]byte(url.QueryEscape(string(key))))
-	previous := []keys.Entry{
-		{Version: keys.Version{ID: solved.ID, Date: "imported"}, Key: encoded, Imported: true, Status: "unknown"},
-		{Version: keys.Version{ID: solved.ID, Date: "generated"}, Key: encoded, Status: "exact"},
-		{Version: keys.Version{ID: solved.ID, Date: "conflict"}, Key: "41", Imported: true, Status: "unknown"},
-		{Version: keys.Version{ID: ambiguous.ID, Date: "ambiguous"}, Key: "41", Imported: true, Status: "unknown"},
-		{Version: keys.Version{ID: -2, Date: "not-in-input"}, Key: "42", Imported: true, Status: "unknown"},
+	previous := inventory{
+		imported: []keys.Entry{
+			{Version: keys.Version{ID: solved.ID, Date: "imported"}, Key: encoded},
+			{Version: keys.Version{ID: solved.ID, Date: "conflict"}, Key: "41"},
+			{Version: keys.Version{ID: ambiguous.ID, Date: "ambiguous"}, Key: "41"},
+			{Version: keys.Version{ID: -2, Date: "not-in-input"}, Key: "42"},
+		},
+		exact: []keys.Entry{{Version: keys.Version{ID: solved.ID, Date: "generated"}, Key: encoded}},
 	}
-	original := append([]keys.Entry(nil), previous...)
+	originalImported := append([]keys.Entry(nil), previous.imported...)
+	originalExact := append([]keys.Entry(nil), previous.exact...)
 	var diagnostics bytes.Buffer
 	entries, stats := process(loaded, previous, &diagnostics)
-	if !reflect.DeepEqual(previous, original) {
-		t.Fatal("processing modified the previous snapshot")
+	if !reflect.DeepEqual(entries.imported, originalImported) || !reflect.DeepEqual(previous.imported, originalImported) || !reflect.DeepEqual(previous.exact, originalExact) {
+		t.Fatal("processing changed imported keys or the previous snapshot")
 	}
-	if len(entries) != 6 || entries[0].Status != "exact" || !entries[0].Imported || entries[0].Key != encoded {
-		t.Fatalf("imported key not preserved/confirmed: %+v", entries)
+	if len(entries.exact) != 4 || entries.exact[0] != originalExact[0] {
+		t.Fatalf("unexpected exact keys: %+v", entries.exact)
 	}
-	if !reflect.DeepEqual(entries[1:5], previous[1:5]) {
-		t.Fatal("existing generated, conflicting, ambiguous or unmatched entry changed")
+	for _, entry := range entries.exact {
+		decoded, err := keys.Decode(entry.Key)
+		if err != nil || !bytes.Equal(decoded, key) {
+			t.Fatal("exact inventory did not contain recovered key")
+		}
 	}
-	if entries[5].Imported || entries[5].Status != "exact" {
-		t.Fatalf("new key metadata: %+v", entries[5])
-	}
-	decoded, err := keys.Decode(entries[5].Key)
-	if err != nil || !bytes.Equal(decoded, key) {
-		t.Fatal("new key did not round trip")
-	}
-	if stats.added != 1 || stats.confirmed != 2 || stats.conflicts != 1 || stats.ambiguous != 1 || stats.failed != 1 || stats.invalid != 2 || stats.plaintext != 1 || stats.beforeCoverage != 4 || stats.afterCoverage != 5 {
+	if stats.added != 3 || stats.confirmed != 2 || stats.conflicts != 1 || stats.ambiguous != 1 || stats.failed != 1 || stats.invalid != 2 || stats.plaintext != 1 || stats.beforeCoverage != 4 || stats.afterCoverage != 5 {
 		t.Fatalf("unexpected results: %+v", stats)
 	}
 	if !strings.Contains(diagnostics.String(), "conflicts with existing key") {
 		t.Fatal("missing conflict diagnostic")
 	}
 	var summary bytes.Buffer
-	stats.print(&summary, "keys.csv", previous, entries)
-	for _, want := range []string{"5/6 (83.33%)", "+1 added", "Status updated to exact: 1", "existing entries unchanged: 4"} {
+	stats.print(&summary, entries)
+	for _, want := range []string{"5/6 (83.33%)", "+3 added", "4 imported, 4 exact, 0 predicted"} {
 		if !strings.Contains(summary.String(), want) {
 			t.Errorf("summary missing %q:\n%s", want, &summary)
 		}
@@ -102,9 +101,10 @@ func TestProcessPreservesProvenanceAndConflicts(t *testing.T) {
 }
 
 func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
-	solved, _, _ := recoveryFixtures(t)
+	solved, key, _ := recoveryFixtures(t)
 	dir := t.TempDir()
-	mapsPath, keysPath := filepath.Join(dir, "maps.csv"), filepath.Join(dir, "keys.csv")
+	mapsPath := filepath.Join(dir, "maps.csv")
+	paths := inventoryPaths{filepath.Join(dir, "imported.csv"), filepath.Join(dir, "exact.csv"), filepath.Join(dir, "predicted.csv")}
 	file, err := os.Create(mapsPath)
 	if err != nil {
 		t.Fatal(err)
@@ -118,33 +118,94 @@ func TestRunCreatesInventoryAndIsIdempotent(t *testing.T) {
 	}
 	file.Close()
 	var summary, diagnostics bytes.Buffer
-	if err := run(mapsPath, keysPath, &summary, &diagnostics); err != nil {
+	if err := keys.Save(paths.imported, []keys.Entry{{Version: keys.Version{ID: 1, Date: "00123"}, Key: keys.Encode(key)}}); err != nil {
 		t.Fatal(err)
 	}
-	first, err := os.ReadFile(keysPath)
+	importedBefore, _ := os.ReadFile(paths.imported)
+	if err := run(mapsPath, paths, &summary, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(paths.exact)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(summary.String(), "+1 added") || !bytes.Contains(first, []byte(",false,exact")) {
+	if !strings.Contains(summary.String(), "+1 added") || !bytes.HasPrefix(first, []byte("id,date,key\r\n")) {
 		t.Fatalf("missing new recovery: %s\n%s", &summary, first)
 	}
 	summary.Reset()
-	if err := run(mapsPath, keysPath, &summary, &diagnostics); err != nil {
+	if err := run(mapsPath, paths, &summary, &diagnostics); err != nil {
 		t.Fatal(err)
 	}
-	second, _ := os.ReadFile(keysPath)
-	if !bytes.Equal(first, second) || !strings.Contains(summary.String(), "+0 added") || !strings.Contains(summary.String(), "Status updated to exact: 0") {
+	second, _ := os.ReadFile(paths.exact)
+	importedAfter, _ := os.ReadFile(paths.imported)
+	if !bytes.Equal(importedBefore, importedAfter) || !strings.Contains(summary.String(), "1/1 (100.00%)") {
+		t.Fatal("imported data or deduplicated coverage changed")
+	}
+	if !bytes.Equal(first, second) || !strings.Contains(summary.String(), "+0 added") {
 		t.Fatalf("second run changed the inventory: %s", &summary)
 	}
-	if err := run(mapsPath, mapsPath, &summary, &diagnostics); err == nil {
+	paths.exact = mapsPath
+	if err := run(mapsPath, paths, &summary, &diagnostics); err == nil {
 		t.Fatal("accepted maps file as output")
 	}
 }
 
 func TestEmptySummary(t *testing.T) {
 	var summary bytes.Buffer
-	results{}.print(&summary, "keys.csv", nil, nil)
+	results{}.print(&summary, inventory{})
 	if strings.Contains(summary.String(), "NaN") || strings.Contains(summary.String(), "Inf") {
 		t.Fatal("undefined percentages in empty summary")
+	}
+}
+
+func TestPredictionsPromotedByExactRecovery(t *testing.T) {
+	solved, key, ambiguous := recoveryFixtures(t)
+	matched, wrong := solved, solved
+	matched.Date, wrong.Date, ambiguous.Date = "matched", "wrong", "ambiguous"
+	previous := inventory{predicted: []keys.Entry{
+		{Version: keys.Version{ID: matched.ID, Date: matched.Date}, Key: keys.Encode(key)},
+		{Version: keys.Version{ID: wrong.ID, Date: wrong.Date}, Key: "41"},
+		{Version: keys.Version{ID: ambiguous.ID, Date: ambiguous.Date}, Key: "42"},
+	}}
+	var diagnostics bytes.Buffer
+	entries, stats := process([]maps.Map{matched, wrong, ambiguous}, previous, &diagnostics)
+	if stats.promoted != 2 || stats.corrected != 1 || stats.added != 0 || stats.beforeCoverage != 0 || stats.afterCoverage != 2 {
+		t.Fatalf("unexpected results: %+v", stats)
+	}
+	if len(entries.exact) != 2 || !reflect.DeepEqual(entries.predicted, previous.predicted[2:]) || len(previous.predicted) != 3 {
+		t.Fatalf("unexpected inventories: %+v", entries)
+	}
+	for _, entry := range entries.exact {
+		got, err := keys.Decode(entry.Key)
+		if err != nil || !bytes.Equal(got, key) {
+			t.Fatal("promotion did not use recovered key")
+		}
+	}
+	if !strings.Contains(diagnostics.String(), "prediction differs") {
+		t.Fatal("missing correction diagnostic")
+	}
+}
+
+func TestRunRejectsPredictionsOverlappingTrustedInventories(t *testing.T) {
+	dir := t.TempDir()
+	paths := inventoryPaths{filepath.Join(dir, "imported.csv"), filepath.Join(dir, "exact.csv"), filepath.Join(dir, "predicted.csv")}
+	entry := []keys.Entry{{Version: keys.Version{ID: 1, Date: "001"}, Key: "41"}}
+	for _, path := range []string{paths.imported, paths.predicted} {
+		if err := keys.Save(path, entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mapsPath := filepath.Join(dir, "maps.csv")
+	if err := os.WriteFile(mapsPath, []byte("id,date,width,height,backgroundNum,ambianceId,musicId,bOutdoor,capabilities,mapData,canAggro,canUseInventory,canUseObject,canChangeCharac\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(paths.exact)
+	err := run(mapsPath, paths, &bytes.Buffer{}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "duplicate map") {
+		t.Fatalf("expected duplicate error, got %v", err)
+	}
+	after, _ := os.ReadFile(paths.exact)
+	if !bytes.Equal(before, after) {
+		t.Fatal("invalid input modified inventory")
 	}
 }
