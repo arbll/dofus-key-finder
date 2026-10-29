@@ -23,7 +23,7 @@ type inventory struct {
 }
 
 type inventoryPaths struct {
-	imported, exact, predicted string
+	imported, exact, predicted, merged string
 }
 
 func main() {
@@ -31,11 +31,12 @@ func main() {
 	imported := flag.String("imported-keys-file", "data/keys_imported.csv", "imported keys to read")
 	exact := flag.String("exact-keys-file", "data/keys_exact.csv", "exact keys to read and update")
 	predicted := flag.String("predicted-keys-file", "data/keys_predicted.csv", "predicted keys to read, update, and promote when recovered exactly")
+	merged := flag.String("merged-keys-file", "data/keys_merged.yaml", "merged YAML output, prioritizing exact, imported, then predicted keys")
 	evaluate := flag.Bool("evaluate", false, "evaluate the predictive model on held-out known keys without writing inventories")
 	verbose := flag.Bool("verbose", false, "show solver, training, ambiguity, and inventory details")
 	flag.Parse()
 	log.SetFlags(0)
-	if err := run(*mapsPath, inventoryPaths{*imported, *exact, *predicted}, os.Stdout, os.Stderr, *evaluate, *verbose); err != nil {
+	if err := run(*mapsPath, inventoryPaths{*imported, *exact, *predicted, *merged}, os.Stdout, os.Stderr, *evaluate, *verbose); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -43,7 +44,7 @@ func main() {
 func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer, evaluateOnly, verbose bool) error {
 	seenPaths := make(map[string]bool)
 	var files []os.FileInfo
-	for _, path := range []string{mapsPath, paths.imported, paths.exact, paths.predicted} {
+	for _, path := range []string{mapsPath, paths.imported, paths.exact, paths.predicted, paths.merged} {
 		abs, err := filepath.Abs(path)
 		if err != nil {
 			return err
@@ -102,6 +103,9 @@ func run(mapsPath string, paths inventoryPaths, output, diagnostics io.Writer, e
 	}
 	if err := keys.Save(paths.predicted, entries.predicted); err != nil {
 		return fmt.Errorf("save predicted keys: %w", err)
+	}
+	if err := keys.SaveMerged(paths.merged, entries.exact, entries.imported, entries.predicted); err != nil {
+		return fmt.Errorf("save merged keys: %w", err)
 	}
 	stats.print(output, entries, verbose)
 	return nil

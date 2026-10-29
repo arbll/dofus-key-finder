@@ -49,7 +49,7 @@ cd dofus-key-finder
 dofus-key-finder
 ```
 
-Reads the bundled maps and imported keys, updates `data/keys_exact.csv` and `data/keys_predicted.csv`, and prints a coverage summary.
+Reads the bundled maps and imported keys, updates `data/keys_exact.csv` and `data/keys_predicted.csv`, writes the final result to `data/keys_merged.yaml`, and prints a coverage summary. The merged file contains one key per map ID and date, with priority **Exact → Imported → Predicted**. Use `-merged-keys-file` to change its output path.
 
 | Task | Command |
 | :--- | :--- |

@@ -2,6 +2,7 @@
 package keys
 
 import (
+	"bufio"
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
@@ -98,13 +99,71 @@ func Load(path string) ([]Entry, error) {
 // Save atomically replaces the inventory only after the entire CSV is written.
 // Existing ordering is supplied by the caller; CRLF matches the source CSV.
 func Save(path string, entries []Entry) error {
+	return save(path, func(w io.Writer) error {
+		writer := csv.NewWriter(w)
+		writer.UseCRLF = true
+		if err := writer.Write(header); err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if err := writer.Write([]string{strconv.Itoa(entry.ID), entry.Date, entry.Key}); err != nil {
+				return err
+			}
+		}
+		writer.Flush()
+		return writer.Error()
+	})
+}
+
+// SaveMerged writes one key per map version as YAML, sorted by ID and date.
+// Groups are ordered from highest to lowest priority; key encodings are preserved.
+func SaveMerged(path string, groups ...[]Entry) error {
+	merged := make(map[Version]Entry)
+	for _, entries := range groups {
+		for _, entry := range entries {
+			if _, exists := merged[entry.Version]; !exists {
+				merged[entry.Version] = entry
+			}
+		}
+	}
+	entries := make([]Entry, 0, len(merged))
+	for _, entry := range merged {
+		entries = append(entries, entry)
+	}
+	slices.SortFunc(entries, func(a, b Entry) int {
+		if a.ID < b.ID {
+			return -1
+		}
+		if a.ID > b.ID {
+			return 1
+		}
+		return strings.Compare(a.Date, b.Date)
+	})
+	return save(path, func(w io.Writer) error {
+		writer := bufio.NewWriter(w)
+		if len(entries) == 0 {
+			if _, err := fmt.Fprintln(writer, "[]"); err != nil {
+				return err
+			}
+		}
+		for _, entry := range entries {
+			if _, err := fmt.Fprintf(writer, "- id: %d\n  date: %s\n  key: %s\n", entry.ID, strconv.Quote(entry.Date), strconv.Quote(entry.Key)); err != nil {
+				return err
+			}
+		}
+		return writer.Flush()
+	})
+}
+
+// save atomically replaces a file only after its entire contents are written.
+func save(path string, write func(io.Writer) error) error {
 	mode := os.FileMode(0644)
 	if info, err := os.Stat(path); err == nil {
 		mode = info.Mode().Perm()
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	file, err := os.CreateTemp(filepath.Dir(path), ".keys-*.csv")
+	file, err := os.CreateTemp(filepath.Dir(path), ".keys-*")
 	if err != nil {
 		return err
 	}
@@ -113,18 +172,7 @@ func Save(path string, entries []Entry) error {
 	if err := file.Chmod(mode); err != nil {
 		return err
 	}
-	writer := csv.NewWriter(file)
-	writer.UseCRLF = true
-	if err := writer.Write(header); err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		if err := writer.Write([]string{strconv.Itoa(entry.ID), entry.Date, entry.Key}); err != nil {
-			return err
-		}
-	}
-	writer.Flush()
-	if err := writer.Error(); err != nil {
+	if err := write(file); err != nil {
 		return err
 	}
 	if err := file.Sync(); err != nil {

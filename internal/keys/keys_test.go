@@ -74,3 +74,34 @@ func TestLoadRejectsInvalidInventory(t *testing.T) {
 		}
 	}
 }
+
+func TestSaveMerged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "keys_merged.yaml")
+	exact := []Entry{{Version{2, "001"}, "253431"}}
+	imported := []Entry{{Version{2, "001"}, "42"}, {Version{1, "002"}, "43"}}
+	predicted := []Entry{
+		{Version{2, "001"}, "44"},
+		{Version{1, "002"}, "45"},
+		{Version{1, "001"}, "46"},
+		{Version{3, "a\"b\nc"}, "47"},
+	}
+	want := "- id: 1\n  date: \"001\"\n  key: \"46\"\n" +
+		"- id: 1\n  date: \"002\"\n  key: \"43\"\n" +
+		"- id: 2\n  date: \"001\"\n  key: \"253431\"\n" +
+		"- id: 3\n  date: \"a\\\"b\\nc\"\n  key: \"47\"\n"
+	for range 2 {
+		if err := SaveMerged(path, exact, imported, predicted); err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(path)
+		if err != nil || string(got) != want {
+			t.Fatalf("merged YAML = %s, error %v; want %s", got, err, want)
+		}
+	}
+	if err := SaveMerged(path); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(path); err != nil || string(got) != "[]\n" {
+		t.Fatalf("empty merged YAML = %q, error %v", got, err)
+	}
+}
