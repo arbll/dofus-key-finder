@@ -51,8 +51,6 @@ cd dofus-key-finder
 dofus-key-finder
 ```
 
-Reads the bundled maps and imported keys, updates `data/keys_exact.csv` and `data/keys_predicted.csv`, writes the final result to `data/keys_merged.csv`, and prints a coverage summary. The merged file contains one key per map ID and date, with priority **Exact → Imported → Predicted**. The `source` column identifies each key as `merged` (exact solver), `imported`, or `predicted`. Use `-merged-keys-file` to change its output path.
-
 | Task | Command |
 | :--- | :--- |
 | Evaluate predictions without updating files | `dofus-key-finder -evaluate` |
