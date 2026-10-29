@@ -7,20 +7,25 @@ import (
 	"slices"
 )
 
-// Model learns smoothed plaintext frequencies at each of the ten cell positions.
-type Model struct {
+// model learns smoothed plaintext frequencies at each of the ten cell positions.
+type model struct {
 	counts [10][256]float64
 	totals [10]float64
 }
 
-func train(plaintexts [][]byte) *Model {
-	m := &Model{}
+// NewModel returns an empty model ready to learn from known keys with Observe.
+func NewModel() *model {
+	return &model{}
+}
+
+func train(plaintexts [][]byte) *model {
+	m := &model{}
 	for _, p := range plaintexts {
 		m.add(p)
 	}
 	return m
 }
-func (m *Model) add(p []byte) {
+func (m *model) add(p []byte) {
 	for i, b := range p {
 		m.counts[i%10][b]++
 		m.totals[i%10]++
@@ -29,7 +34,7 @@ func (m *Model) add(p []byte) {
 
 // guess maximizes independent byte log likelihood within candidate constraints.
 // Singleton positions stay fixed. Ties choose the first (smallest) candidate.
-func (m *Model) guess(data []byte, candidates [][]byte) ([]byte, error) {
+func (m *model) guess(data []byte, candidates [][]byte) ([]byte, error) {
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("no candidates")
 	}
@@ -62,7 +67,7 @@ func (m *Model) guess(data []byte, candidates [][]byte) ([]byte, error) {
 
 // Observe adds plaintext from a known key only when the key satisfies the
 // deterministic solver. Callers must not use predictions as training labels.
-func (m *Model) Observe(source maps.Map, key []byte) error {
+func (m *model) Observe(source maps.Map, key []byte) error {
 	candidates, err := candidates(source)
 	if err != nil {
 		return err

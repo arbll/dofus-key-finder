@@ -11,16 +11,16 @@ import (
 // ErrAmbiguous means the current constraints allow more than one key.
 var ErrAmbiguous = errors.New("ambiguous key")
 
-// Result contains the unescaped key in its original order and recovery details.
+// result contains the unescaped key in its original order and recovery details.
 // Stats remain available when Key returns ErrAmbiguous without a trained model.
-type Result struct {
+type result struct {
 	Key            []byte
 	UsedPrediction bool
-	Stats          Stats
+	Stats          stats
 }
 
-// Stats describes deterministic constraints, not calibrated confidence.
-type Stats struct {
+// stats describes deterministic constraints, not calibrated confidence.
+type stats struct {
 	KeyLength       int
 	EncryptedBytes  int
 	DeterminedBytes int
@@ -30,8 +30,8 @@ type Stats struct {
 
 // Key first applies deterministic constraints. A trained model resolves remaining
 // ambiguous bytes; nil (or an empty model) requests deterministic recovery only.
-func Key(m maps.Map, model *Model) (Result, error) {
-	var result Result
+func Key(m maps.Map, model *model) (result, error) {
+	var result result
 	candidates, err := candidates(m)
 	if err != nil {
 		return result, err
@@ -41,7 +41,7 @@ func Key(m maps.Map, model *Model) (Result, error) {
 		return result, err
 	}
 	count := candidateCount(candidates)
-	result.Stats = Stats{KeyLength: len(candidates), EncryptedBytes: len(data), CandidateCount: count.String()}
+	result.Stats = stats{KeyLength: len(candidates), EncryptedBytes: len(data), CandidateCount: count.String()}
 	for _, c := range candidates {
 		if len(c) == 1 {
 			result.Stats.DeterminedBytes++

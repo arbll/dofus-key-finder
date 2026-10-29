@@ -13,7 +13,7 @@ func TestKeyRecoveryDetails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	model := train(nil)
+	trained := train(nil)
 	var exact, ambiguous *maps.Map
 	for _, m := range loaded {
 		result, err := Key(m, nil)
@@ -23,7 +23,7 @@ func TestKeyRecoveryDetails(t *testing.T) {
 			if result.UsedPrediction || result.Stats.CandidateCount != "1" || result.Stats.DeterminedBytes != len(result.Key) || result.Stats.AmbiguousBytes != 0 {
 				t.Fatalf("bad exact stats: %+v", result)
 			}
-			if err := model.Observe(m, result.Key); err != nil {
+			if err := trained.Observe(m, result.Key); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -38,13 +38,13 @@ func TestKeyRecoveryDetails(t *testing.T) {
 	if exact == nil || ambiguous == nil {
 		t.Fatal("missing fixtures")
 	}
-	for _, empty := range []*Model{nil, train(nil)} {
+	for _, empty := range []*model{nil, train(nil)} {
 		result, err := Key(*ambiguous, empty)
 		if !errors.Is(err, ErrAmbiguous) || result.Key != nil || result.UsedPrediction || result.Stats.AmbiguousBytes == 0 {
 			t.Fatalf("bad ambiguous result: %+v, %v", result, err)
 		}
 	}
-	guessed, err := Key(*ambiguous, model)
+	guessed, err := Key(*ambiguous, trained)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,15 +60,15 @@ func TestKeyRecoveryDetails(t *testing.T) {
 			t.Fatal("prediction escaped solver constraints")
 		}
 	}
-	result, err := Key(*exact, model)
+	result, err := Key(*exact, trained)
 	if err != nil || result.UsedPrediction {
 		t.Fatalf("model used for exact map: %+v, %v", result, err)
 	}
-	before := *model
-	if err := model.Observe(*exact, []byte("bad")); err == nil {
+	before := *trained
+	if err := trained.Observe(*exact, []byte("bad")); err == nil {
 		t.Fatal("accepted incompatible training key")
 	}
-	if *model != before {
+	if *trained != before {
 		t.Fatal("invalid training mutated model")
 	}
 }

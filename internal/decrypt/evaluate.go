@@ -71,7 +71,7 @@ func splitSamples(samples []sample) {
 
 type metric struct{ n, full, ambiguous, solved, byteN, byteOK, importedN, importedOK, exactOnlyN, exactOnlyOK int }
 
-func evaluate(model *Model, samples []sample, split int) metric {
+func evaluate(model *model, samples []sample, split int) metric {
 	var r metric
 	for _, s := range samples {
 		if s.split != split {

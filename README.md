@@ -30,6 +30,6 @@ go run ./cmd/dofus-key-finder --evaluate
 
 Evaluation keeps versions of a map ID and identical plaintexts together in a fixed 60/20/20 train/validation/test split. It reports whole-key and unresolved-byte accuracy. Conflicting or incompatible labels fail evaluation. This partition has been inspected in earlier experiments, so results are a regression benchmark rather than a fresh estimate of generalization.
 
-The `decrypt.Key(map, model)` API returns a `Result` with `Key`, `UsedPrediction`, and `Stats`: key length, encrypted byte count, determined/ambiguous key-byte counts, and the exact candidate count as a decimal string. Passing a nil model requests deterministic recovery only; `ErrAmbiguous` retains candidate statistics. These statistics are not calibrated confidence values.
+The `decrypt.Key(map, model)` API returns a result with `Key`, `UsedPrediction`, and `Stats`: key length, encrypted byte count, determined/ambiguous key-byte counts, and the exact candidate count as a decimal string. Passing a nil model requests deterministic recovery only; `ErrAmbiguous` retains candidate statistics. These statistics are not calibrated confidence values.
 
 Run checks with `go test ./...`. The map data is included; Git LFS is not required.
